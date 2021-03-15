@@ -13,7 +13,7 @@ query results from other streams.
 .. note::
 
    Creating tables is similar to creating streams. For more information, see
-   :ref:`ksql_examples`.
+   :ref:`create-a-table-with-ksql`.
 
 Create a Stream from a Kafka topic
 **********************************
@@ -48,7 +48,7 @@ In the KSQL CLI, paste the following CREATE STREAM statement:
 
 Your output should resemble:
 
-.. code:: text
+::
 
      Message
     ----------------
@@ -57,16 +57,28 @@ Your output should resemble:
 
 Inspect the stream by using the SHOW STREAMS and DESCRIBE statements:
 
-.. code:: text
+.. code:: sql
 
-    ksql> SHOW STREAMS;
+    SHOW STREAMS;
+
+Your output should resemble:
+
+::
 
     Stream Name | Kafka Topic | Format
     ---------------------------------------
     PAGEVIEWS   | pageviews   | DELIMITED
     ---------------------------------------
 
-    ksql> DESCRIBE PAGEVIEWS;
+Get the schema for the stream:
+
+.. code:: sql
+
+    DESCRIBE PAGEVIEWS;
+
+Your output should resemble:
+
+::
 
     Name                 : PAGEVIEWS
      Field    | Type
@@ -103,9 +115,13 @@ column, you can write the CREATE STREAM statement like this:
 Confirm that the KEY field in the new stream is ``pageid`` by using the
 DESCRIBE EXTENDED statement:
 
-.. code:: text
+.. code:: sql
 
-    ksql> DESCRIBE EXTENDED pageviews_withkey;
+    DESCRIBE EXTENDED pageviews_withkey;
+
+Your output should resemble:
+
+::
 
     Name                 : PAGEVIEWS_WITHKEY
     Type                 : STREAM
@@ -143,9 +159,13 @@ like this:
 Confirm that the TIMESTAMP field is ``viewtime`` by using the DESCRIBE EXTENDED
 statement:
 
-.. code:: text
+.. code:: sql
 
-    ksql> DESCRIBE EXTENDED pageviews_timestamped;
+    DESCRIBE EXTENDED pageviews_timestamped;
+
+Your output should resemble:
+
+::
 
     Name                 : PAGEVIEWS_TIMESTAMPED
     Type                 : STREAM
@@ -156,16 +176,23 @@ statement:
     Kafka topic          : pageviews (partitions: 1, replication: 1)
     [...]
 
-Create a Continuous Streaming Query from a Stream
+Create a Persistent Streaming Query from a Stream
 *************************************************
 
-Use the CREATE STREAM AS SELECT statement to create a query stream from an 
-existing stream. 
+Use the CREATE STREAM AS SELECT statement to create a persistent query stream
+from an existing stream. 
 
 CREATE STREAM AS SELECT creates a stream that contains the results from a
 SELECT query. KSQL persists the SELECT query results into a corresponding new
-topic. A stream created this way represents a persistent, continuous query,
-which means that it runs until you stop it explicitly.
+topic. A stream created this way represents a persistent, continuous, streaming
+query, which means that it runs until you stop it explicitly.
+
+.. note::
+
+   A SELECT statement by itself is a *non-persistent* continuous query. The result
+   of a SELECT statement isn't persisted in a Kafka topic and is only printed in the
+   KSQL console. Don't confuse persistent queries created by CREATE STREAM AS SELECT
+   with the streaming query result from a SELECT statement.
 
 Use the SHOW QUERIES statement to list the persistent queries that are running
 currently.
@@ -178,12 +205,14 @@ Use the TERMINATE statement to stop a persistent query. Exiting the KSQL CLI
 *does not stop* persistent queries. Your KSQL servers continue to process the
 queries, and queries run continuously until you terminate them explicitly.
 
+To stream the result of a SELECT query into an *existing* stream and its
+underlying topic, use the INSERT INTO statement.
+
 .. note::
 
-   A SELECT statement by itself is a *non-persistent* continuous query. The result
-   of a SELECT statement isn't persisted in a Kafka topic and is only printed in the
-   KSQL console. Don't confuse persistent queries created by CREATE STREAM AS SELECT
-   with the query result from a SELECT statement.
+    The CREATE STREAM AS SELECT statement doesn't support the KEY property.
+    To specify a KEY field, use the PARTITION BY clause. For more information,
+    see :ref:`partition-data-to-enable-joins`.
 
 The following KSQL statement creates a ``pageviews_intro`` stream that contains
 results from a persistent query that matches "introductory" pages that have a
@@ -197,7 +226,7 @@ results from a persistent query that matches "introductory" pages that have a
 
 Your output should resemble:
 
-.. code:: text
+::
 
      Message
     ----------------------------
@@ -207,9 +236,14 @@ Your output should resemble:
 To confirm that the ``pageviews_intro`` query is running continuously as a
 stream, run the PRINT statement:
 
-.. code:: text
+.. code:: sql
 
-    ksql> PRINT pageviews_intro;
+    PRINT pageviews_intro;
+
+Your output should resemble:
+
+::
+
     Format:STRING
     10/30/18 10:15:51 PM UTC , 294851 , 1540937751186,User_8,Page_12
     10/30/18 10:15:55 PM UTC , 295051 , 1540937755255,User_1,Page_15
@@ -219,26 +253,22 @@ stream, run the PRINT statement:
     10/30/18 10:15:59 PM UTC , 295241 , 1540937759990,User_6,Page_15
     ^CTopic printing ceased
 
-Press CTRL-C to stop printing the stream.
+Press CTRL+C to stop printing the stream.
 
 .. note:: 
 
    The query continues to run after you stop printing the stream. 
 
-Terminate a Persistent Query
-****************************
+Use the SHOW QUERIES statement to view the query that KSQL created for the 
+``pageviews_intro`` stream:
 
-Use the TERMINATE statement to stop a persistent query. The TERMINATE statement
-requires the ID of the query, which you get by using the SHOW QUERIES statement.
+.. code:: sql
 
-A persistent query that's created by the CREATE STREAM AS SELECT
-statement has the string ``CSAS`` in its ID, for example, ``CSAS_PAGEVIEWS_INTRO_0``.
+    SHOW QUERIES;
 
-Run the SHOW QUERIES statement to see the ID of the ``pageviews_intro`` query:
+Your output should resemble:
 
-.. code:: text
-
-    ksql> SHOW QUERIES;
+::
 
      Query ID               | Kafka Topic     | Query String
     --------------------------------------------------------------------------------------------------------------------------------------------
@@ -246,26 +276,41 @@ Run the SHOW QUERIES statement to see the ID of the ``pageviews_intro`` query:
     --------------------------------------------------------------------------------------------------------------------------------------------
     For detailed information on a Query run: EXPLAIN <Query ID>;
 
-When you have the Query ID, you can terminate the query:
+A persistent query that's created by the CREATE STREAM AS SELECT
+statement has the string ``CSAS`` in its ID, for example, ``CSAS_PAGEVIEWS_INTRO_0``.
+
+Delete a KSQL Stream
+********************
+
+Use the DROP STREAM statement to delete a stream. If you created the stream
+by using CREATE STREAM AS SELECT, you must first terminate the corresponding 
+persistent query.
+
+Use the TERMINATE statement to stop the ``CSAS_PAGEVIEWS_INTRO_0`` query:
 
 .. code:: text
 
-    ksql> TERMINATE CSAS_PAGEVIEWS_INTRO_0;
+    TERMINATE CSAS_PAGEVIEWS_INTRO_0;
+
+Your output should resemble:
+
+::
 
      Message
     -------------------
      Query terminated.
     -------------------
 
-Delete a Persistent Query
-*************************
+Use the DROP STREAM statement to delete a persistent query stream. You must
+TERMINATE the query before you can drop the corresponding stream.
 
-Use the DROP STREAM statement to delete a persistent query. You must TERMINATE
-the query before you can drop it.
+.. code:: sql
 
-.. code:: text
+    DROP STREAM pageviews_intro;
 
-    ksql> DROP STREAM pageviews_intro;
+Your output should resemble:
+
+::
 
      Message
     -------------------

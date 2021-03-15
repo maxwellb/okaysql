@@ -48,6 +48,8 @@ Folow these steps to create your custom functions:
          KSQL server, including your custom UDF and UDAF functions. Use the
          DESCRIBE FUNCTION statement to display details about your custom functions.
 
+For a detailed walkthrough on creating a UDF, see :ref:`implement-a-udf`.
+
 ======================
 Creating UDF and UDAFs
 ======================
@@ -112,6 +114,9 @@ used to call the UDF. As can be seen this UDF can be invoked in different ways:
 
 .. code:: java
 
+    import io.confluent.ksql.function.udf.Udf;
+    import io.confluent.ksql.function.udf.UdfDescription;
+
     @UdfDescription(name = "multiply", description = "multiplies 2 numbers")
     public class Multiply {
 
@@ -135,6 +140,32 @@ used to call the UDF. As can be seen this UDF can be invoked in different ways:
         return v1 * v2;
       }
     }
+
+If you're using Gradle to build your UDF or UDAF, specify the ``ksql-udf``
+dependency: 
+
+.. codewithvars:: bash
+
+    compile 'io.confluent.ksql:ksql-udf:|release|'
+
+To compile with the latest version of ``ksql-udf``:
+
+.. codewithvars:: bash
+
+    compile 'io.confluent.ksql:ksql-udf:+'
+
+If you're using Maven to build your UDF or UDAF, specify the ``ksql-udf``
+dependency in your POM file:
+
+.. codewithvars:: xml
+
+    <dependencies>
+        <dependency>
+            <groupId>io.confluent.ksql</groupId>
+            <artifactId>ksql-udf</artifactId>
+            <version>|release|</version>
+        </dependency>
+    </dependencies>
 
 
 UdfDescription Annotation
@@ -179,6 +210,7 @@ of the UDF does, for example:
         + " extends to the character at endIndex -1.")
     public String substring(final String value, final int startIndex, final int endIndex)
 
+.. _ksql-udafs:
 
 UDAFs
 -----
