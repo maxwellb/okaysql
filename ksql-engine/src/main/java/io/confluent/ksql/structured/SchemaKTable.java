@@ -17,7 +17,16 @@
 package io.confluent.ksql.structured;
 
 import com.google.common.collect.ImmutableList;
-
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.ksql.GenericRow;
+import io.confluent.ksql.function.FunctionRegistry;
+import io.confluent.ksql.parser.tree.Expression;
+import io.confluent.ksql.util.SelectExpression;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.connect.data.Field;
@@ -31,19 +40,9 @@ import org.apache.kafka.streams.kstream.Serialized;
 import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.kstream.WindowedSerdes;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-
-import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.confluent.ksql.GenericRow;
-import io.confluent.ksql.function.FunctionRegistry;
-import io.confluent.ksql.parser.tree.Expression;
-import io.confluent.ksql.util.Pair;
-
+// CHECKSTYLE_RULES.OFF: ClassDataAbstractionCoupling
 public class SchemaKTable extends SchemaKStream {
+  // CHECKSTYLE_RULES.ON: ClassDataAbstractionCoupling
   private final KTable<?, GenericRow> ktable;
   private final boolean isWindowed;
 
@@ -52,8 +51,8 @@ public class SchemaKTable extends SchemaKStream {
       final KTable ktable,
       final Field keyField,
       final List<SchemaKStream> sourceSchemaKStreams,
-      boolean isWindowed,
-      Type type,
+      final boolean isWindowed,
+      final Type type,
       final FunctionRegistry functionRegistry,
       final SchemaRegistryClient schemaRegistryClient
   ) {
@@ -75,7 +74,7 @@ public class SchemaKTable extends SchemaKStream {
   public SchemaKTable into(
       final String kafkaTopicName,
       final Serde<GenericRow> topicValueSerDe,
-      Set<Integer> rowkeyIndexes
+      final Set<Integer> rowkeyIndexes
   ) {
     if (isWindowed) {
       final Serde<Windowed<String>> windowedSerde
@@ -86,7 +85,7 @@ public class SchemaKTable extends SchemaKStream {
                 if (row == null) {
                   return null;
                 }
-                List columns = new ArrayList();
+                final List<Object> columns = new ArrayList<>();
                 for (int i = 0; i < row.getColumns().size(); i++) {
                   if (!rowkeyIndexes.contains(i)) {
                     columns.add(row.getColumns().get(i));
@@ -101,7 +100,7 @@ public class SchemaKTable extends SchemaKStream {
             if (row == null) {
               return null;
             }
-            List columns = new ArrayList();
+            final List<Object> columns = new ArrayList<>();
             for (int i = 0; i < row.getColumns().size(); i++) {
               if (!rowkeyIndexes.contains(i)) {
                 columns.add(row.getColumns().get(i));
@@ -122,13 +121,13 @@ public class SchemaKTable extends SchemaKStream {
   @SuppressWarnings("unchecked")
   @Override
   public SchemaKTable filter(final Expression filterExpression) {
-    SqlPredicate predicate = new SqlPredicate(
+    final SqlPredicate predicate = new SqlPredicate(
         filterExpression,
         schema,
         isWindowed,
         functionRegistry
     );
-    KTable filteredKTable = ktable.filter(predicate.getPredicate());
+    final KTable filteredKTable = ktable.filter(predicate.getPredicate());
     return new SchemaKTable(
         schema,
         filteredKTable,
@@ -143,8 +142,8 @@ public class SchemaKTable extends SchemaKStream {
 
   @SuppressWarnings("unchecked")
   @Override
-  public SchemaKTable select(final List<Pair<String, Expression>> expressionPairList) {
-    Selection selection = new Selection(expressionPairList, functionRegistry, this);
+  public SchemaKTable select(final List<SelectExpression> selectExpressions) {
+    final Selection selection = new Selection(selectExpressions, functionRegistry, this);
     return new SchemaKTable(
         selection.getSchema(),
         ktable.mapValues(selection.getSelectValueMapper()),

@@ -16,14 +16,10 @@
 
 package io.confluent.ksql.ddl.commands;
 
-import org.easymock.EasyMock;
-import org.junit.Before;
-import org.junit.Test;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Optional;
+import static org.easymock.EasyMock.anyString;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.ksql.ddl.DdlConfig;
@@ -37,17 +33,17 @@ import io.confluent.ksql.parser.tree.Expression;
 import io.confluent.ksql.parser.tree.PrimitiveType;
 import io.confluent.ksql.parser.tree.QualifiedName;
 import io.confluent.ksql.parser.tree.RegisterTopic;
-import io.confluent.ksql.parser.tree.SetProperty;
 import io.confluent.ksql.parser.tree.StringLiteral;
 import io.confluent.ksql.parser.tree.TableElement;
 import io.confluent.ksql.parser.tree.Type;
 import io.confluent.ksql.util.KafkaTopicClient;
 import io.confluent.ksql.util.KsqlException;
-
-import static org.easymock.EasyMock.anyString;
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.MatcherAssert.assertThat;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import org.easymock.EasyMock;
+import org.junit.Before;
+import org.junit.Test;
 
 public class CommandFactoriesTest {
 
@@ -71,7 +67,8 @@ public class CommandFactoriesTest {
   public void shouldCreateDDLCommandForRegisterTopic() {
     final DdlCommand result = commandFactories.create(
         sqlExpression, new RegisterTopic(QualifiedName.of("blah"),
-            true, properties)
+            true, properties),
+        Collections.emptyMap()
     );
     assertThat(result, instanceOf(RegisterTopicCommand.class));
   }
@@ -80,7 +77,8 @@ public class CommandFactoriesTest {
   public void shouldCreateCommandForCreateStream() {
     final DdlCommand result = commandFactories.create(
         sqlExpression, new CreateStream(QualifiedName.of("foo"),
-            Collections.emptyList(), true, properties)
+            Collections.emptyList(), true, properties),
+        Collections.emptyMap()
     );
 
     assertThat(result, instanceOf(CreateStreamCommand.class));
@@ -88,14 +86,15 @@ public class CommandFactoriesTest {
 
   @Test
   public void shouldCreateCommandForCreateTable() {
-    HashMap<String, Expression> tableProperties = new HashMap<>();
+    final HashMap<String, Expression> tableProperties = new HashMap<>();
     tableProperties.putAll(properties);
     tableProperties.put(DdlConfig.KEY_NAME_PROPERTY, new StringLiteral("COL1"));
     final DdlCommand result = commandFactories.create(sqlExpression,
         new CreateTable(QualifiedName.of("foo"),
                         Arrays.asList(new TableElement("COL1", new PrimitiveType(Type.KsqlType.BIGINT)), new TableElement
                             ("COL2", new PrimitiveType(Type.KsqlType.STRING))), true,
-                        tableProperties)
+                        tableProperties),
+        Collections.emptyMap()
     );
 
     assertThat(result, instanceOf(CreateTableCommand.class));
@@ -103,7 +102,7 @@ public class CommandFactoriesTest {
 
   @Test
   public void shouldFailCreateTableIfKeyNameIsIncorrect() {
-    HashMap<String, Expression> tableProperties = new HashMap<>();
+    final HashMap<String, Expression> tableProperties = new HashMap<>();
     tableProperties.putAll(properties);
     tableProperties.put(DdlConfig.KEY_NAME_PROPERTY, new StringLiteral("COL3"));
     try {
@@ -111,10 +110,11 @@ public class CommandFactoriesTest {
           new CreateTable(QualifiedName.of("foo"),
                           Arrays.asList(new TableElement("COL1", new PrimitiveType(Type.KsqlType.BIGINT)), new TableElement
                               ("COL2", new PrimitiveType(Type.KsqlType.STRING))), true,
-                          tableProperties)
+                          tableProperties),
+          Collections.emptyMap()
       );
 
-    } catch (KsqlException e) {
+    } catch (final KsqlException e) {
       assertThat(e.getMessage(), equalTo("No column with the provided key column name in the "
                                          + "WITH clause, COL3, exists in the defined schema."));
     }
@@ -123,7 +123,7 @@ public class CommandFactoriesTest {
 
   @Test
   public void shouldFailCreateTableIfTimestampColumnNameIsIncorrect() {
-    HashMap<String, Expression> tableProperties = new HashMap<>();
+    final HashMap<String, Expression> tableProperties = new HashMap<>();
     tableProperties.putAll(properties);
     tableProperties.put(DdlConfig.TIMESTAMP_NAME_PROPERTY, new StringLiteral("COL3"));
     try {
@@ -131,10 +131,11 @@ public class CommandFactoriesTest {
           new CreateTable(QualifiedName.of("foo"),
                           Arrays.asList(new TableElement("COL1", new PrimitiveType(Type.KsqlType.BIGINT)), new TableElement
                               ("COL2", new PrimitiveType(Type.KsqlType.STRING))), true,
-                          tableProperties)
+                          tableProperties),
+          Collections.emptyMap()
       );
 
-    } catch (KsqlException e) {
+    } catch (final KsqlException e) {
       assertThat(e.getMessage(), equalTo("No column with the provided timestamp column name in the WITH clause, COL3, exists in the defined schema."));
     }
 
@@ -146,10 +147,11 @@ public class CommandFactoriesTest {
       commandFactories.create(sqlExpression,
           new CreateTable(QualifiedName.of("foo"),
                           Arrays.asList(new TableElement("COL1", new PrimitiveType(Type.KsqlType.BIGINT)), new TableElement
-                              ("COL2", new PrimitiveType(Type.KsqlType.STRING))), true, properties)
+                              ("COL2", new PrimitiveType(Type.KsqlType.STRING))), true, properties),
+          Collections.emptyMap()
       );
 
-    } catch (KsqlException e) {
+    } catch (final KsqlException e) {
       assertThat(e.getMessage(), equalTo("Cannot define a TABLE without providing the KEY column name in the WITH clause."));
     }
 
@@ -158,7 +160,8 @@ public class CommandFactoriesTest {
   @Test
   public void shouldCreateCommandForDropStream() {
     final DdlCommand result = commandFactories.create(sqlExpression,
-        new DropStream(QualifiedName.of("foo"), true, true)
+        new DropStream(QualifiedName.of("foo"), true, true),
+        Collections.emptyMap()
     );
     assertThat(result, instanceOf(DropSourceCommand.class));
   }
@@ -166,7 +169,8 @@ public class CommandFactoriesTest {
   @Test
   public void shouldCreateCommandForDropTable() {
     final DdlCommand result = commandFactories.create(sqlExpression,
-        new DropTable(QualifiedName.of("foo"), true, true)
+        new DropTable(QualifiedName.of("foo"), true, true),
+        Collections.emptyMap()
     );
     assertThat(result, instanceOf(DropSourceCommand.class));
   }
@@ -174,13 +178,14 @@ public class CommandFactoriesTest {
   @Test
   public void shouldCreateCommandForDropTopic() {
     final DdlCommand result = commandFactories.create(sqlExpression,
-        new DropTopic(QualifiedName.of("foo"), true)
+        new DropTopic(QualifiedName.of("foo"), true),
+        Collections.emptyMap()
     );
     assertThat(result, instanceOf(DropTopicCommand.class));
   }
 
   @Test(expected = KsqlException.class)
   public void shouldThowKsqlExceptionIfCommandFactoryNotFound() {
-    commandFactories.create(sqlExpression, new DdlStatement() {});
+    commandFactories.create(sqlExpression, new DdlStatement() {}, Collections.emptyMap());
   }
 }

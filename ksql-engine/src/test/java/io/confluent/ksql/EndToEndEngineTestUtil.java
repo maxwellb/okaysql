@@ -19,12 +19,30 @@ package io.confluent.ksql;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.confluent.connect.avro.AvroData;
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.ksql.function.InternalFunctionRegistry;
 import io.confluent.ksql.function.UdfLoaderUtil;
+import io.confluent.ksql.metastore.MetaStore;
+import io.confluent.ksql.metastore.MetaStoreImpl;
+import io.confluent.ksql.schema.registry.MockSchemaRegistryClientFactory;
+import io.confluent.ksql.util.FakeKafkaTopicClient;
+import io.confluent.ksql.util.KsqlConfig;
 import io.confluent.ksql.util.KsqlConstants;
+import io.confluent.ksql.util.QueryMetadata;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -40,25 +58,6 @@ import org.apache.kafka.streams.kstream.internals.TimeWindow;
 import org.apache.kafka.streams.test.ConsumerRecordFactory;
 import org.apache.kafka.streams.test.OutputVerifier;
 import org.apache.kafka.test.TestUtils;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.stream.Collectors;
-
-import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
-import io.confluent.ksql.metastore.MetaStore;
-import io.confluent.ksql.metastore.MetaStoreImpl;
-import io.confluent.ksql.util.FakeKafkaTopicClient;
-import io.confluent.ksql.util.KsqlConfig;
-import io.confluent.ksql.util.QueryMetadata;
 
 class EndToEndEngineTestUtil {
   private static final InternalFunctionRegistry functionRegistry = new InternalFunctionRegistry();
@@ -123,7 +122,7 @@ class EndToEndEngineTestUtil {
       try {
         schemaString = schemaRegistryClient.getLatestSchemaMetadata(
             topicName + KsqlConstants.SCHEMA_REGISTRY_VALUE_SUFFIX).getSchema();
-      } catch (Exception e) {
+      } catch (final Exception e) {
         throw new RuntimeException(e);
       }
       return avroToValueSpec(
@@ -137,7 +136,7 @@ class EndToEndEngineTestUtil {
     private final SchemaRegistryClient schemaRegistryClient;
     private final KafkaAvroSerializer avroSerializer;
 
-    public ValueSpecAvroSerializer(SchemaRegistryClient schemaRegistryClient) {
+    public ValueSpecAvroSerializer(final SchemaRegistryClient schemaRegistryClient) {
       this.schemaRegistryClient = schemaRegistryClient;
       this.avroSerializer = new KafkaAvroSerializer(schemaRegistryClient);
     }
@@ -156,7 +155,7 @@ class EndToEndEngineTestUtil {
       try {
         schemaString = schemaRegistryClient.getLatestSchemaMetadata(
             topicName + KsqlConstants.SCHEMA_REGISTRY_VALUE_SUFFIX).getSchema();
-      } catch (Exception e) {
+      } catch (final Exception e) {
         throw new RuntimeException(e);
       }
       final Object avroObject = valueSpecToAvro(
@@ -194,7 +193,7 @@ class EndToEndEngineTestUtil {
       }
       try {
         return new ObjectMapper().readValue(data, Map.class);
-      } catch (Exception e) {
+      } catch (final Exception e) {
         throw new RuntimeException(e);
       }
     }
@@ -216,7 +215,7 @@ class EndToEndEngineTestUtil {
       }
       try {
         return new ObjectMapper().writeValueAsBytes(spec);
-      } catch (Exception e) {
+      } catch (final Exception e) {
         throw new RuntimeException(e);
       }
     }
@@ -398,7 +397,7 @@ class EndToEndEngineTestUtil {
              expectedOutput.value,
              expectedOutput.timestamp);
        }
-      } catch (AssertionError assertionError) {
+      } catch (final AssertionError assertionError) {
         throw new AssertionError("Query name: "
             + name
             + " in file: " + testPath
@@ -408,13 +407,13 @@ class EndToEndEngineTestUtil {
     }
 
     void initializeTopics(final KsqlEngine ksqlEngine) {
-      for (Topic topic : topics) {
+      for (final Topic topic : topics) {
         ksqlEngine.getTopicClient().createTopic(topic.getName(), 1, (short) 1);
         if (topic.getSchema() != null) {
           try {
             ksqlEngine.getSchemaRegistryClient().register(
                 topic.getName() + KsqlConstants.SCHEMA_REGISTRY_VALUE_SUFFIX, topic.getSchema());
-          } catch (Exception e) {
+          } catch (final Exception e) {
             throw new RuntimeException(e);
           }
         }
@@ -456,6 +455,7 @@ class EndToEndEngineTestUtil {
   static void shouldBuildAndExecuteQuery(final Query query) {
     final MetaStore metaStore = new MetaStoreImpl(functionRegistry);
     final SchemaRegistryClient schemaRegistryClient = new MockSchemaRegistryClient();
+    final Supplier<SchemaRegistryClient> schemaRegistryClientFactory = () -> schemaRegistryClient;
 
     final Map<String, Object> config = new HashMap<String, Object>() {{
       put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:0");
@@ -471,7 +471,7 @@ class EndToEndEngineTestUtil {
 
     try (final KsqlEngine ksqlEngine = new KsqlEngine(
         new FakeKafkaTopicClient(),
-        schemaRegistryClient,
+        schemaRegistryClientFactory,
         metaStore
     )) {
       query.initializeTopics(ksqlEngine);
@@ -513,7 +513,7 @@ class EndToEndEngineTestUtil {
         );
       case RECORD:
         final GenericRecord record = new GenericData.Record(schema);
-        for (org.apache.avro.Schema.Field field : schema.getFields()) {
+        for (final org.apache.avro.Schema.Field field : schema.getFields()) {
           record.put(
               field.name(),
               valueSpecToAvro(((Map<String, ?>)spec).get(field.name()), field.schema())
@@ -521,7 +521,7 @@ class EndToEndEngineTestUtil {
         }
         return record;
       case UNION:
-        for (org.apache.avro.Schema memberSchema : schema.getTypes()) {
+        for (final org.apache.avro.Schema memberSchema : schema.getTypes()) {
           if (!memberSchema.getType().equals(org.apache.avro.Schema.Type.NULL)) {
             return valueSpecToAvro(spec, memberSchema);
           }
@@ -574,7 +574,7 @@ class EndToEndEngineTestUtil {
                 )
             );
       case RECORD:
-        Map<String, Object> recordSpec = new HashMap<>();
+        final Map<String, Object> recordSpec = new HashMap<>();
         schema.getFields().forEach(
             f -> recordSpec.put(
                 toUpper ? f.name().toUpperCase() : f.name(),

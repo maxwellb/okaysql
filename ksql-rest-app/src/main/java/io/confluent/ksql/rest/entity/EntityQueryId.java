@@ -19,13 +19,12 @@ package io.confluent.ksql.rest.entity;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.confluent.ksql.query.QueryId;
-
 import java.util.Objects;
 
 public class EntityQueryId {
   private final String id;
 
-  public EntityQueryId(QueryId queryId) {
+  public EntityQueryId(final QueryId queryId) {
     this.id = queryId.getId();
   }
 
@@ -40,7 +39,7 @@ public class EntityQueryId {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(final Object o) {
     return o instanceof EntityQueryId
         && Objects.equals(((EntityQueryId) o).id, id);
   }

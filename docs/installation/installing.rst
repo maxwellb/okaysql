@@ -11,12 +11,13 @@ as a part of the |cp| bundle.
 KSQL must have access to a running Kafka cluster, which can be in your data center, in a public cloud, |ccloud|, etc.
 
 Docker support
-    You can deploy KSQL in Docker, however the current release does not yet ship with ready-to-use KSQL Docker images for
-    production. These images are coming soon.
+    You can deploy KSQL by using Docker containers. Starting with |cp| 4.1.2,
+    Confluent maintains images at `Docker Hub <https://hub.docker.com/r/confluentinc/cp-ksql-server/>`__.
+    To start KSQL containers in configurations like "KSQL Headless Server" and
+    "Interactive Server with Interceptors", see
+    :ref:`Docker Configuration Parameters <config_reference>`.
 
-.. contents::
-    :local:
-
+Watch the `screencast of Installing and Running KSQL <https://www.youtube.com/embed/icwHpPm-TCA>`_ on YouTube.
 
 ---------------------------------------
 Supported Versions and Interoperability
@@ -63,16 +64,15 @@ Follow these instructions to start KSQL server using the ``ksql-server-start`` s
     the parameters in the KSQL properties file or the ``KSQL_OPTS`` environment variable. Properties set with ``KSQL_OPTS``
     take precedence over those specified in the properties file.
 
-    A recommended approach is to configure a common set of properties using ``KSQL_OPTS`` and override specific
-    properties as needed, using the KSQL properties file.
+    A recommended approach is to configure a common set of properties using the KSQL configuration file and override
+    specific properties as needed, using the ``KSQL_OPTS`` environment variable.
 
     Here are the default settings:
 
-    .. code:: bash
+    ::
 
         bootstrap.servers=localhost:9092
         listeners=http://localhost:8088
-        ui.enabled=true
 
     For more information, see :ref:`ksql-server-config`.
 
@@ -82,15 +82,9 @@ Follow these instructions to start KSQL server using the ``ksql-server-start`` s
 
         $ <path-to-confluent>/bin/ksql-server-start <path-to-confluent>/etc/ksql/ksql-server.properties
 
-    or with overriding properties:
+    .. tip:: You can view the KSQL server help text by running ``<path-to-confluent>/bin/ksql-server-start --help``.
 
-    .. code:: bash
-
-        $ KSQL_OPTS=-Dui.enabled=false <path-to-confluent>/bin/ksql-server-start <path-to-confluent>/etc/ksql/ksql-server.properties
-
-.. tip:: You can view the KSQL server help text by running ``<path-to-confluent>/bin/ksql-server-start --help``.
-
-         .. code:: bash
+         ::
 
                 NAME
                         server - KSQL Cluster
@@ -135,19 +129,18 @@ You can start the KSQL CLI by providing the connection information to the KSQL s
     $ LOG_DIR=./ksql_logs <path-to-confluent>/bin/ksql http://localhost:8088
 
 .. include:: ../includes/ksql-includes.rst
-    :start-line: 338
-    :end-line: 349
+    :start-after: log_limitations_start
+    :end-before: log_limitations_qs_end
 
 After KSQL is started, your terminal should resemble this.
 
 .. include:: ../includes/ksql-includes.rst
-    :start-line: 19
-    :end-line: 40
+    :start-after: CLI_welcome_start
+    :end-before: CLI_welcome_end
 
-Tip
-    You can view the KSQL CLI help text by running ``<path-to-confluent>/bin/ksql --help``.
+.. tip:: You can view the KSQL CLI help text by running ``<path-to-confluent>/bin/ksql --help``.
 
-    .. code:: bash
+    ::
 
             NAME
                     ksql - KSQL CLI

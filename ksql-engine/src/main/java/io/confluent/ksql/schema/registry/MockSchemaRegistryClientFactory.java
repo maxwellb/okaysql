@@ -1,5 +1,5 @@
-/**
- * Copyright 2017 Confluent Inc.
+/*
+ * Copyright 2018 Confluent Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,13 +12,15 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- **/
+ */
 
-package io.confluent.ksql;
+package io.confluent.ksql.schema.registry;
 
-public class DemoTest {
-  public static void main(String[] args) {
-    System.out.println("KSQL Clickstream Demo");
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+
+public class MockSchemaRegistryClientFactory {
+  public SchemaRegistryClient get() {
+    return new MockSchemaRegistryClient();
   }
-
 }

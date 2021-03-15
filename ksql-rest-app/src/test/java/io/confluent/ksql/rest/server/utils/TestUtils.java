@@ -17,13 +17,6 @@
 package io.confluent.ksql.rest.server.utils;
 
 
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.ksql.KsqlEngine;
 import io.confluent.ksql.function.InternalFunctionRegistry;
@@ -33,42 +26,48 @@ import io.confluent.ksql.rest.server.computation.CommandId;
 import io.confluent.ksql.util.KafkaTopicClient;
 import io.confluent.ksql.util.KsqlConfig;
 import io.confluent.ksql.util.Pair;
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Supplier;
 
 public class TestUtils {
 
   public List<Pair<CommandId, Command>> getAllPriorCommandRecords() {
-    List<Pair<CommandId, Command>> priorCommands = new ArrayList<>();
+    final List<Pair<CommandId, Command>> priorCommands = new ArrayList<>();
 
-    Command topicCommand = new Command(
+    final Command topicCommand = new Command(
         "REGISTER TOPIC pageview_topic WITH "
             + "(value_format = 'json', kafka_topic='pageview_topic_json');",
         Collections.emptyMap(), Collections.emptyMap());
-    CommandId topicCommandId =  new CommandId(CommandId.Type.TOPIC, "_CSASTopicGen", CommandId.Action.CREATE);
+    final CommandId topicCommandId =  new CommandId(CommandId.Type.TOPIC, "_CSASTopicGen", CommandId.Action.CREATE);
     priorCommands.add(new Pair<>(topicCommandId, topicCommand));
 
 
-    Command csCommand = new Command("CREATE STREAM pageview "
+    final Command csCommand = new Command("CREATE STREAM pageview "
                                     + "(viewtime bigint, pageid varchar, userid varchar) "
                                     + "WITH (registered_topic = 'pageview_topic');",
                                     Collections.emptyMap(), Collections.emptyMap());
-    CommandId csCommandId =  new CommandId(CommandId.Type.STREAM, "_CSASStreamGen", CommandId.Action.CREATE);
+    final CommandId csCommandId =  new CommandId(CommandId.Type.STREAM, "_CSASStreamGen", CommandId.Action.CREATE);
     priorCommands.add(new Pair<>(csCommandId, csCommand));
 
-    Command csasCommand = new Command("CREATE STREAM user1pv "
+    final Command csasCommand = new Command("CREATE STREAM user1pv "
                                       + " AS select * from pageview WHERE userid = 'user1';",
                                       Collections.emptyMap(), Collections.emptyMap());
 
-    CommandId csasCommandId =  new CommandId(CommandId.Type.STREAM, "_CSASGen", CommandId.Action.CREATE);
+    final CommandId csasCommandId =  new CommandId(CommandId.Type.STREAM, "_CSASGen", CommandId.Action.CREATE);
     priorCommands.add(new Pair<>(csasCommandId, csasCommand));
 
 
-    Command ctasCommand = new Command("CREATE TABLE user1pvtb "
+    final Command ctasCommand = new Command("CREATE TABLE user1pvtb "
                                       + " AS select * from pageview window tumbling(size 5 "
                                       + "second) WHERE userid = "
                                       + "'user1' group by pageid;",
                                       Collections.emptyMap(), Collections.emptyMap());
 
-    CommandId ctasCommandId =  new CommandId(CommandId.Type.TABLE, "_CTASGen", CommandId.Action.CREATE);
+    final CommandId ctasCommandId =  new CommandId(CommandId.Type.TABLE, "_CTASGen", CommandId.Action.CREATE);
     priorCommands.add(new Pair<>(ctasCommandId, ctasCommand));
 
     return priorCommands;
@@ -76,12 +75,12 @@ public class TestUtils {
 
   public static KsqlEngine createKsqlEngine(final KsqlConfig ksqlConfig,
                                             final KafkaTopicClient topicClient,
-                                            final SchemaRegistryClient schemaRegistryClient) {
+                                            final Supplier<SchemaRegistryClient> schemaRegistryClientFactory) {
     class TestKsqlEngine extends KsqlEngine {
       private TestKsqlEngine() {
         super(
             topicClient,
-            schemaRegistryClient,
+            schemaRegistryClientFactory,
             new MetaStoreImpl(new InternalFunctionRegistry()));
       }
     };
@@ -90,8 +89,8 @@ public class TestUtils {
   }
 
   public static int randomFreeLocalPort() throws IOException {
-    ServerSocket s = new ServerSocket(0);
-    int port = s.getLocalPort();
+    final ServerSocket s = new ServerSocket(0);
+    final int port = s.getLocalPort();
     s.close();
     return port;
   }

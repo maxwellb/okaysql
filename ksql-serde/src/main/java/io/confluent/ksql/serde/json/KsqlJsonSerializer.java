@@ -17,15 +17,13 @@
 package io.confluent.ksql.serde.json;
 
 import io.confluent.ksql.GenericRow;
-
+import java.util.Collections;
+import java.util.Map;
 import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.json.JsonConverter;
-
-import java.util.Collections;
-import java.util.Map;
 
 public class KsqlJsonSerializer implements Serializer<GenericRow> {
 
@@ -58,7 +56,7 @@ public class KsqlJsonSerializer implements Serializer<GenericRow> {
       }
 
       return jsonConverter.fromConnectData(topic, schema, struct);
-    } catch (Exception e) {
+    } catch (final Exception e) {
       throw new SerializationException("Error serializing JSON message", e);
     }
   }
@@ -81,7 +79,7 @@ public class KsqlJsonSerializer implements Serializer<GenericRow> {
     }
   }
 
-  private boolean compareStructSchema(Schema schema1, Schema schema2) {
+  private boolean compareStructSchema(final Schema schema1, final Schema schema2) {
     if (schema1.fields().size() != schema2.fields().size()) {
       return false;
     }

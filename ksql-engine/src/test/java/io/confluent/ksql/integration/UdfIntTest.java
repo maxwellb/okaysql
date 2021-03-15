@@ -1,5 +1,8 @@
 package io.confluent.ksql.integration;
 
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import io.confluent.common.utils.IntegrationTest;
 import io.confluent.ksql.GenericRow;
 import io.confluent.ksql.KsqlContext;
@@ -9,6 +12,11 @@ import io.confluent.ksql.serde.DataSource;
 import io.confluent.ksql.util.ItemDataProvider;
 import io.confluent.ksql.util.OrderDataProvider;
 import io.confluent.ksql.util.SchemaUtil;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.connect.data.Schema;
@@ -17,15 +25,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.MatcherAssert.assertThat;
 
 @Category({IntegrationTest.class})
 public class UdfIntTest {
@@ -50,7 +49,9 @@ public class UdfIntTest {
   public void before() throws Exception {
     testHarness = new IntegrationTestHarness();
     testHarness.start(Collections.emptyMap());
-    ksqlContext = KsqlContext.create(testHarness.ksqlConfig, testHarness.schemaRegistryClient);
+    ksqlContext = KsqlContext.create(
+        testHarness.ksqlConfig,
+        testHarness.schemaRegistryClientFactory);
     testHarness.createTopic(jsonTopicName);
 
     testHarness.createTopic(avroTopicName);
@@ -137,9 +138,9 @@ public class UdfIntTest {
                                  avroRecordMetadataMap);
   }
 
-  private void testApplyUdfsToColumns(String resultStreamName,
-                                      String inputStreamName,
-                                      DataSource.DataSourceSerDe dataSourceSerde) throws Exception {
+  private void testApplyUdfsToColumns(final String resultStreamName,
+                                      final String inputStreamName,
+                                      final DataSource.DataSourceSerDe dataSourceSerde) throws Exception {
 
     final String queryString = String.format(
         "CREATE STREAM %s AS SELECT %s FROM %s WHERE %s;",
@@ -152,9 +153,9 @@ public class UdfIntTest {
 
     ksqlContext.sql(queryString);
 
-    Schema resultSchema = ksqlContext.getMetaStore().getSource(resultStreamName).getSchema();
+    final Schema resultSchema = ksqlContext.getMetaStore().getSource(resultStreamName).getSchema();
 
-    Map<String, GenericRow> expectedResults =
+    final Map<String, GenericRow> expectedResults =
         Collections.singletonMap("8",
                                  new GenericRow(Arrays.asList(null,
                                                               null,
@@ -164,7 +165,7 @@ public class UdfIntTest {
                                                               12.0,
                                                               true)));
 
-    Map<String, GenericRow> results =
+    final Map<String, GenericRow> results =
         testHarness.consumeData(resultStreamName,
                                 resultSchema,
                                 4,
@@ -175,9 +176,9 @@ public class UdfIntTest {
     assertThat(results, equalTo(expectedResults));
   }
 
-  private void testShouldCastSelectedColumns(String resultStreamName,
-                                             String inputStreamName,
-                                             DataSource.DataSourceSerDe dataSourceSerde)
+  private void testShouldCastSelectedColumns(final String resultStreamName,
+                                             final String inputStreamName,
+                                             final DataSource.DataSourceSerDe dataSourceSerde)
       throws Exception {
     final String selectColumns =
         " CAST (ORDERUNITS AS INTEGER), CAST( PRICEARRAY[1]>1000 AS STRING), CAST (SUBSTRING"
@@ -193,9 +194,9 @@ public class UdfIntTest {
 
     ksqlContext.sql(queryString);
 
-    Schema resultSchema = ksqlContext.getMetaStore().getSource(resultStreamName).getSchema();
+    final Schema resultSchema = ksqlContext.getMetaStore().getSource(resultStreamName).getSchema();
 
-    Map<String, GenericRow> expectedResults =
+    final Map<String, GenericRow> expectedResults =
         Collections.singletonMap("8",
                                  new GenericRow(Arrays.asList(
                                      null,
@@ -205,7 +206,7 @@ public class UdfIntTest {
                                      8.0,
                                      "80.0")));
 
-    Map<String, GenericRow> results =
+    final Map<String, GenericRow> results =
         testHarness.consumeData(resultStreamName,
                                 resultSchema,
                                 4,
@@ -215,8 +216,8 @@ public class UdfIntTest {
     assertThat(results, equalTo(expectedResults));
   }
 
-  private void testTimestampColumnSelection(String stream1Name, String stream2Name, String
-      inputStreamName, DataSource.DataSourceSerDe dataSourceSerDe, Map<String, RecordMetadata>
+  private void testTimestampColumnSelection(final String stream1Name, final String stream2Name, final String
+      inputStreamName, final DataSource.DataSourceSerDe dataSourceSerDe, final Map<String, RecordMetadata>
                                                 recordMetadataMap) throws Exception {
 
     final String query1String =
@@ -231,10 +232,10 @@ public class UdfIntTest {
 
     ksqlContext.sql(query1String);
 
-    Schema resultSchema = SchemaUtil.removeImplicitRowTimeRowKeyFromSchema(
+    final Schema resultSchema = SchemaUtil.removeImplicitRowTimeRowKeyFromSchema(
         ksqlContext.getMetaStore().getSource(stream2Name).getSchema());
 
-    Map<String, GenericRow> expectedResults = new HashMap<>();
+    final Map<String, GenericRow> expectedResults = new HashMap<>();
     expectedResults.put("8",
                         new GenericRow(Arrays.asList(
                             "8",
@@ -245,7 +246,7 @@ public class UdfIntTest {
                             "ORDER_6",
                             "ITEM_8")));
 
-    Map<String, GenericRow> results =
+    final Map<String, GenericRow> results =
         testHarness.consumeData(stream2Name,
                                 resultSchema,
                                 expectedResults.size(),
@@ -270,13 +271,13 @@ public class UdfIntTest {
 
     ksqlContext.sql(queryString);
 
-    Map<String, GenericRow> expectedResults =
+    final Map<String, GenericRow> expectedResults =
         Collections.singletonMap("ITEM_1",
                                  new GenericRow(Arrays.asList(
                                      "ITEM_1",
                                      "home cinema")));
 
-    Map<String, GenericRow> results =
+    final Map<String, GenericRow> results =
         testHarness.consumeData(
             testStreamName,
             itemDataProvider.schema(),

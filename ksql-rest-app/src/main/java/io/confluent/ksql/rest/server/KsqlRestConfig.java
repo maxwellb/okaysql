@@ -20,7 +20,6 @@ import io.confluent.common.config.ConfigDef;
 import io.confluent.ksql.util.KsqlConstants;
 import io.confluent.ksql.util.KsqlException;
 import io.confluent.rest.RestConfig;
-
 import java.util.Map;
 
 public class KsqlRestConfig extends RestConfig {
@@ -96,7 +95,7 @@ public class KsqlRestConfig extends RestConfig {
     );
   }
 
-  public KsqlRestConfig(Map<?, ?> props) {
+  public KsqlRestConfig(final Map<?, ?> props) {
     super(CONFIG_DEF, props);
     if (getList(RestConfig.LISTENERS_CONFIG).isEmpty()) {
       throw new KsqlException(RestConfig.LISTENERS_CONFIG + " must be supplied.  "
@@ -109,8 +108,8 @@ public class KsqlRestConfig extends RestConfig {
     return originalsWithPrefix("");
   }
 
-  private Map<String, Object> getPropertiesWithOverrides(String prefix) {
-    Map<String, Object> result = getOriginals();
+  private Map<String, Object> getPropertiesWithOverrides(final String prefix) {
+    final Map<String, Object> result = getOriginals();
     result.putAll(originalsWithPrefix(prefix));
     return result;
   }
@@ -127,7 +126,7 @@ public class KsqlRestConfig extends RestConfig {
     return getOriginals();
   }
 
-  public String getCommandTopic(String ksqlServiceId) {
+  public String getCommandTopic(final String ksqlServiceId) {
     return String.format(
         "%s%s_%s",
         KsqlConstants.KSQL_INTERNAL_TOPIC_PREFIX,

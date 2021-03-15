@@ -18,19 +18,19 @@ package io.confluent.ksql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.streams.StreamsBuilder;
-
-import java.util.Map;
-import java.util.Optional;
-
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.ksql.function.FunctionRegistry;
 import io.confluent.ksql.structured.SchemaKStream;
 import io.confluent.ksql.util.KafkaTopicClient;
 import io.confluent.ksql.util.KsqlConfig;
 import io.confluent.ksql.util.timestamp.TimestampExtractionPolicy;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Supplier;
+
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.streams.StreamsBuilder;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class KsqlBareOutputNode extends OutputNode {
@@ -55,17 +55,18 @@ public class KsqlBareOutputNode extends OutputNode {
   }
 
   @Override
-  public SchemaKStream buildStream(final StreamsBuilder builder,
-                                   final KsqlConfig ksqlConfig,
-                                   final KafkaTopicClient kafkaTopicClient,
-                                   final FunctionRegistry functionRegistry,
-                                   final Map<String, Object> props,
-                                   final SchemaRegistryClient schemaRegistryClient) {
+  public SchemaKStream buildStream(
+      final StreamsBuilder builder,
+      final KsqlConfig ksqlConfig,
+      final KafkaTopicClient kafkaTopicClient,
+      final FunctionRegistry functionRegistry,
+      final Map<String, Object> props,
+      final Supplier<SchemaRegistryClient> schemaRegistryClientFactory) {
     final SchemaKStream schemaKStream = getSource().buildStream(builder,
         ksqlConfig,
         kafkaTopicClient,
         functionRegistry,
-        props, schemaRegistryClient);
+        props, schemaRegistryClientFactory);
 
     schemaKStream.setOutputNode(this);
     return schemaKStream.toQueue();

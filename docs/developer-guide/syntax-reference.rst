@@ -1,18 +1,13 @@
 .. _ksql_syntax_reference:
 
-Syntax Reference
-================
+KSQL Syntax Reference
+=====================
 
 KSQL has similar semantics to SQL:
 
 - Terminate KSQL statements with a semicolon ``;``
 - Use a back-slash ``\`` to indicate continuation of a multi-line statement on the next line
 - You can escape ' characters inside string literals by using '', i.e., 'yyyy-MM-dd''T''HH:mm:ssX'
-
-.. contents:: Contents
-    :local:
-    :depth: 1
-
 
 ===========
 Terminology
@@ -39,6 +34,47 @@ means new facts can be inserted to the table, and existing facts can be updated 
 Kafka topic or derived from existing streams and tables. In both cases, a table’s underlying data is durably stored (persisted)
 within a Kafka topic on the Kafka brokers.
 
+.. _struct_overview:
+
+STRUCT
+------
+
+In KSQL 5.0 and higher, you can read nested data, in Avro and JSON formats,
+by using the ``STRUCT`` type in CREATE STREAM and CREATE TABLE statements.
+You can use the ``STRUCT`` type in these KSQL statements: 
+
+- CREATE STREAM/TABLE (from a topic)
+- CREATE STREAM/TABLE AS SELECT (from existing streams/tables)
+- SELECT (non-persistent query)
+
+Use the following syntax to declare nested data: 
+
+.. code:: sql
+
+   STRUCT<FieldName FieldType, ...>
+
+The ``STRUCT`` type requires you to specify a list of fields. For each field, you
+specify the field name and field type. The field type can be any of the
+supported KSQL types, including the complex types ``MAP``, ``ARRAY``, and
+``STRUCT``. Here's an example CREATE STREAM statement that uses a ``STRUCT`` to
+encapsulate a street address and a postal code:
+
+.. code:: sql
+
+   CREATE STREAM orders (
+     orderId BIGINT,
+     address STRUCT<street VARCHAR, zip INTEGER>) WITH (...);
+
+Access the fields in a ``STRUCT`` by using the dereference operator (``->``):
+
+.. code:: sql
+
+   SELECT address->city, address->zip FROM orders;
+
+For more info, see :ref:`operators`.
+
+.. note:: You can’t create new nested ``STRUCT`` data as the result of a query,
+   but you can copy existing ``STRUCT`` fields as-is.
 
 =================
 KSQL CLI Commands
@@ -112,7 +148,8 @@ The RUN SCRIPT command supports a subset of KSQL statements:
 
 - Persistent queries: :ref:`create-stream`, :ref:`create-table`, :ref:`create-stream-as-select`, :ref:`create-table-as-select`
 - :ref:`drop-stream` and :ref:`drop-table`
-- SET statement
+- SET, UNSET statements
+- INSERT INTO statement
 
 It does not support statements such as:
 
@@ -136,11 +173,6 @@ KSQL statements
        -  In the CLI you must use a backslash (``\``) to indicate
           continuation of a statement on the next line.
        -  Do not use ``\`` for multi-line statements in ``.sql`` files.
-
-
-.. contents:: Available KSQL statements:
-    :local:
-    :depth: 1
 
 .. _create-stream:
 
@@ -191,6 +223,8 @@ The WITH clause supports the following properties:
 |                         | the implicit ``ROWKEY`` column (message key).                                              |
 |                         | If set, KSQL uses it as an optimization hint to determine if repartitioning can be avoided |
 |                         | when performing aggregations and joins.                                                    |
+|                         | You can only use this if the key format in kafka is ``VARCHAR`` or ``STRING``. Do not use  |
+|                         | this hint if the message key format in kafka is AVRO or JSON.                              |
 |                         | See :ref:`ksql_key_requirements` for more information.                                     |
 +-------------------------+--------------------------------------------------------------------------------------------+
 | TIMESTAMP               | By default, the implicit ``ROWTIME`` column is the timestamp of the message in the Kafka   |
@@ -207,7 +241,7 @@ The WITH clause supports the following properties:
 +-------------------------+--------------------------------------------------------------------------------------------+
 
 
-.. include:: includes/ksql-includes.rst
+.. include:: ../includes/ksql-includes.rst
     :start-after: Avro_note_start
     :end-before: Avro_note_end
 
@@ -216,6 +250,17 @@ Example:
 .. code:: sql
 
     CREATE STREAM pageviews (viewtime BIGINT, user_id VARCHAR, page_id VARCHAR)
+      WITH (VALUE_FORMAT = 'JSON',
+            KAFKA_TOPIC = 'my-pageviews-topic');
+
+If the name of a column in your source topic is one of the reserved words in KSQL you can use back quotes to define the column.
+The same applies to the field names in a STRUCT type.
+For indsance, if in the above example we had another field called ``Properties``, which is a reserved word in KSQL, you can
+use the following statement to declare your stream:
+
+.. code:: sql
+
+    CREATE STREAM pageviews (viewtime BIGINT, user_id VARCHAR, page_id VARCHAR, `Properties` VARCHAR)
       WITH (VALUE_FORMAT = 'JSON',
             KAFKA_TOPIC = 'my-pageviews-topic');
 
@@ -293,7 +338,7 @@ The WITH clause supports the following properties:
 |                         | 'yyyy-MM-dd''T''HH:mm:ssX'                                                                 |
 +-------------------------+--------------------------------------------------------------------------------------------+
 
-.. include:: includes/ksql-includes.rst
+.. include:: ../includes/ksql-includes.rst
     :start-after: Avro_note_start
     :end-before: Avro_note_end
 
@@ -304,6 +349,17 @@ Example:
     CREATE TABLE users (usertimestamp BIGINT, user_id VARCHAR, gender VARCHAR, region_id VARCHAR)
         KAFKA_TOPIC = 'my-users-topic',
         KEY = 'user_id');
+
+If the name of a column in your source topic is one of the reserved words in KSQL you can use back quotes to define the column.
+The same applies to the field names in a STRUCT type.
+For instance, if in the above example we had another field called ``Properties``, which is a reserved word in KSQL, you can
+use the following statement to declare your table:
+
+.. code:: sql
+
+    CREATE TABLE users (usertimestamp BIGINT, user_id VARCHAR, gender VARCHAR, region_id VARCHAR, `Properties` VARCHAR)
+            KAFKA_TOPIC = 'my-users-topic',
+            KEY = 'user_id');
 
 .. _create-stream-as-select:
 
@@ -317,8 +373,8 @@ CREATE STREAM AS SELECT
     CREATE STREAM stream_name
       [WITH ( property_name = expression [, ...] )]
       AS SELECT  select_expr [, ...]
-      FROM from_item
-      [ LEFT JOIN join_table ON join_criteria ]
+      FROM from_stream
+      [ LEFT | FULL | INNER ] JOIN [join_table | join_stream] [ WITHIN [(before TIMEUNIT, after TIMEUNIT) | N TIMEUNIT] ] ON join_criteria 
       [ WHERE condition ]
       [PARTITION BY column_name];
 
@@ -330,6 +386,14 @@ its corresponding topic.
 
 If the PARTITION BY clause is present, then the resulting stream will
 have the specified column as its key.
+
+For joins, the key of the resulting stream will be the value from the column
+from the left stream that was used in the join criteria. This column will be
+registered as the key of the resulting stream if included in the selected
+columns.
+
+For stream-table joins, the column used in the join criteria for the table
+must be the table key.
 
 The WITH clause for the result supports the following properties:
 
@@ -355,7 +419,7 @@ The WITH clause for the result supports the following properties:
 |               | any downstream queries. Downstream queries that use time-based operations, such as windowing,        |
 |               | will process records in this stream based on the timestamp in this field. By default,                |
 |               | such queries will also use this field to set the timestamp on any records emitted to Kafka.          |
-|               | Timestamps have a millisecond accuracy.
+|               | Timestamps have a millisecond accuracy.                                                              |
 |               |                                                                                                      |
 |               | If not supplied, the ``ROWTIME`` of the source stream will be used.                                  |
 |               |                                                                                                      |
@@ -371,7 +435,7 @@ The WITH clause for the result supports the following properties:
 |                         | 'yyyy-MM-dd''T''HH:mm:ssX'                                                                 |
 +-------------------------+--------------------------------------------------------------------------------------------+
 
-.. include:: includes/ksql-includes.rst
+.. include:: ../includes/ksql-includes.rst
     :start-after: Avro_note_start
     :end-before: Avro_note_end
 
@@ -389,7 +453,8 @@ CREATE TABLE AS SELECT
     CREATE TABLE table_name
       [WITH ( property_name = expression [, ...] )]
       AS SELECT  select_expr [, ...]
-      FROM from_item
+      FROM from_table
+      [ LEFT | FULL | INNER ] JOIN join_table ON join_criteria 
       [ WINDOW window_expression ]
       [ WHERE condition ]
       [ GROUP BY grouping_expression ]
@@ -401,49 +466,57 @@ Create a new KSQL table along with the corresponding Kafka topic and
 stream the result of the SELECT query as a changelog into the topic.
 Note that the WINDOW clause can only be used if the ``from_item`` is a stream.
 
+For joins, the key of the resulting table will be the value from the column
+from the left table that was used in the join criteria. This column will be
+registered as the key of the resulting table if included in the selected
+columns.
+
+For joins, the columns used in the join criteria must be the keys of the
+tables being joined.
+
 The WITH clause supports the following properties:
 
-+---------------+------------------------------------------------------------------------------------------------------+
-| Property      | Description                                                                                          |
-+===============+======================================================================================================+
-| KAFKA_TOPIC   | The name of the Kafka topic that backs this table. If this property is not set, then the             |
-|               | name of the table will be used as default.                                                           |
-+---------------+------------------------------------------------------------------------------------------------------+
-| VALUE_FORMAT  | Specifies the serialization format of the message value in the topic. Supported formats:             |
-|               | ``JSON``, ``DELIMITED`` (comma-separated value), and ``AVRO``. If this property is not               |
-|               | set, then the format of the input stream or table is used.                                           |
-+---------------+------------------------------------------------------------------------------------------------------+
-| PARTITIONS    | The number of partitions in the backing topic. If this property is not set, then the number          |
-|               | of partitions is taken from the value of the ``ksql.sink.partitions`` property, which                |
-|               | defaults to four partitions. The ``ksql.sink.partitions`` property can be set in the                 |
-|               | properties file the KSQL server is started with, or by using the ``SET`` statement.                  |
-+---------------+------------------------------------------------------------------------------------------------------+
-| REPLICAS      | The replication factor for the topic. If this property is not set, then the number of                |
-|               | replicas of the input stream or table will be used.                                                  |
-+---------------+------------------------------------------------------------------------------------------------------+
-| TIMESTAMP     | Sets a field within this tables's schema to be used as the default source of ``ROWTIME`` for         |
-|               | any downstream queries. Downstream queries that use time-based operations, such as windowing,        |
-|               | will process records in this stream based on the timestamp in this field.                            |
-|               | Timestamps have a millisecond accuracy.                                                              |
-|               |                                                                                                      |
-|               | If not supplied, the ``ROWTIME`` of the source stream will be used.                                  |
-|               |                                                                                                      |
-|               | **NOTE**: This does _not_ affect the processing of the query that populates this table,              |
-|               | e.g. given the statement                                                                             |
-|               |                                                                                                      |
-|               | .. literalinclude:: includes/ctas-snippet.sql                                                        |
-|               |    :language: sql                                                                                    |
-|               |                                                                                                      |
-|               | the window into which each row of ``bar`` is placed is determined by bar's ``ROWTIME``, not ``t2``.  |
-+---------------+------------------------------------------------------------------------------------------------------+
-| TIMESTAMP_FORMAT        | Used in conjunction with TIMESTAMP. If not set will assume that the timestamp field is a   |
-|                         | long. If it is set, then the TIMESTAMP field must be of type varchar and have a format     |
-|                         | that can be parsed with the java ``DateTimeFormatter``. If your timestamp format has       |
-|                         | characters requiring single quotes, you can escape them with '', for example:              |
-|                         | 'yyyy-MM-dd''T''HH:mm:ssX'                                                                 |
-+-------------------------+--------------------------------------------------------------------------------------------+
++-------------------------+------------------------------------------------------------------------------------------------------+
+| Property                | Description                                                                                          |
++=========================+======================================================================================================+
+| KAFKA_TOPIC             | The name of the Kafka topic that backs this table. If this property is not set, then the             |
+|                         | name of the table will be used as default.                                                           |
++-------------------------+------------------------------------------------------------------------------------------------------+
+| VALUE_FORMAT            | Specifies the serialization format of the message value in the topic. Supported formats:             |
+|                         | ``JSON``, ``DELIMITED`` (comma-separated value), and ``AVRO``. If this property is not               |
+|                         | set, then the format of the input stream or table is used.                                           |
++-------------------------+------------------------------------------------------------------------------------------------------+
+| PARTITIONS              | The number of partitions in the backing topic. If this property is not set, then the number          |
+|                         | of partitions is taken from the value of the ``ksql.sink.partitions`` property, which                |
+|                         | defaults to four partitions. The ``ksql.sink.partitions`` property can be set in the                 |
+|                         | properties file the KSQL server is started with, or by using the ``SET`` statement.                  |
++-------------------------+------------------------------------------------------------------------------------------------------+
+| REPLICAS                | The replication factor for the topic. If this property is not set, then the number of                |
+|                         | replicas of the input stream or table will be used.                                                  |
++-------------------------+------------------------------------------------------------------------------------------------------+
+| TIMESTAMP               | Sets a field within this tables's schema to be used as the default source of ``ROWTIME`` for         |
+|                         | any downstream queries. Downstream queries that use time-based operations, such as windowing,        |
+|                         | will process records in this stream based on the timestamp in this field.                            |
+|                         | Timestamps have a millisecond accuracy.                                                              |
+|                         |                                                                                                      |
+|                         | If not supplied, the ``ROWTIME`` of the source stream will be used.                                  |
+|                         |                                                                                                      |
+|                         | **NOTE**: This does _not_ affect the processing of the query that populates this table,              |
+|                         | e.g. given the statement                                                                             |
+|                         |                                                                                                      |
+|                         | .. literalinclude:: ../includes/ctas-snippet.sql                                                     |
+|                         |    :language: sql                                                                                    |
+|                         |                                                                                                      |
+|                         | the window into which each row of ``bar`` is placed is determined by bar's ``ROWTIME``, not ``t2``.  |
++-------------------------+------------------------------------------------------------------------------------------------------+
+| TIMESTAMP_FORMAT        | Used in conjunction with TIMESTAMP. If not set will assume that the timestamp field is a             |
+|                         | long. If it is set, then the TIMESTAMP field must be of type varchar and have a format               |
+|                         | that can be parsed with the java ``DateTimeFormatter``. If your timestamp format has                 |
+|                         | characters requiring single quotes, you can escape them with '', for example:                        |
+|                         | 'yyyy-MM-dd''T''HH:mm:ssX'                                                                           |
++-------------------------+------------------------------------------------------------------------------------------------------+
 
-.. include:: includes/ksql-includes.rst
+.. include:: ../includes/ksql-includes.rst
     :start-after: Avro_note_start
     :end-before: Avro_note_end
 
@@ -490,6 +563,19 @@ DESCRIBE
 * DESCRIBE: List the columns in a stream or table along with their data type and other attributes.
 * DESCRIBE EXTENDED: Display DESCRIBE information with additional runtime statistics, Kafka topic details, and the
   set of queries that populate the table or stream.
+
+Extended descriptions provide the following metrics for the topic backing the source being described:
+
+* messages-per-sec: The number of messages produced per second into the topic by the server
+* total-messages: Total number of messages produced into the topic by the server
+* total-message-bytes: Total number of bytes produced into the topic by the server
+* consumer-messages-per-sec: The number of messages consumed per second from the topic by the server
+* consumer-total-messages: Total number of messages consumed from the topic by the server
+* consumer-total-message-bytes: Total number of bytes consumed from the topic by the server
+* last-message: The time that the last message was produced to or consumed from the topic by the server
+* failed-messages-per-sec: The number of failures during message consumption (for example, deserialization failures) per second on the server
+* consumer-failed-messages: The total number of failures during message consumption on the server
+* last-failed: The time that the last failure occured when a message was consumed from the topic by the server
 
 Example of describing a table:
 
@@ -605,7 +691,7 @@ Example of explaining a running query:
 .. _drop-stream:
 
 DROP STREAM [IF EXISTS] [DELETE TOPIC];
------------------------
+---------------------------------------
 
 **Synopsis**
 
@@ -625,7 +711,7 @@ If IF EXISTS is present, does not fail if the table does not exist.
 .. _drop-table:
 
 DROP TABLE [IF EXISTS] [DELETE TOPIC];
-----------------------
+--------------------------------------
 
 **Synopsis**
 
@@ -639,7 +725,7 @@ Drops an existing table.
 If DELETE TOPIC clause is present, the corresponding topic in
 kafka will be marked for deletion and if the topic format is AVRO, delete the corresponding avro
 schema too. Note that the topic deletion is asynchronous and actual removal from brokers may take
- some time to complete.
+some time to complete.
 If IF EXISTS is present, does not fail if the table does not exist.
 
 PRINT
@@ -647,13 +733,23 @@ PRINT
 
 .. code:: sql
 
-    PRINT qualifiedName (FROM BEGINNING)? ((INTERVAL | SAMPLE) number)?
+    PRINT qualifiedName [FROM BEGINNING] [INTERVAL]
 
 **Description**
 
 Print the contents of Kafka topics to the KSQL CLI.
 
 .. important:: SQL grammar defaults to uppercase formatting. You can use quotations (``"``) to print topics that contain lowercase characters.
+
+The PRINT statement supports the following properties:
+
++-------------------------+------------------------------------------------------------------------------------------------------------------+
+| Property                | Description                                                                                                      |
++=========================+==================================================================================================================+
+| FROM BEGINNING          | Print starting with the first message in the topic. If not specified, PRINT starts with the most recent message. |
++-------------------------+------------------------------------------------------------------------------------------------------------------+
+| INTERVAL                | Print every nth message. The default is 1, meaning that every message is printed.                                |
++-------------------------+------------------------------------------------------------------------------------------------------------------+
 
 For example:
 
@@ -819,6 +915,7 @@ SHOW FUNCTIONS
 **Synopsis**
 
 .. code:: sql
+
     SHOW | LIST FUNCTIONS;
 
 **Description**
@@ -918,6 +1015,71 @@ they are explicitly terminated.
 (To terminate a non-persistent query use ``Ctrl-C`` in the CLI.)
 
 .. _operators:
+
+=========
+Operators
+=========
+
+KSQL supports the following operators in value expressions.
+
+The explanation for each operator includes a supporting example based on the following table:
+
+.. code:: sql
+
+  CREATE TABLE USERS (
+      USERID BIGINT
+      FIRST_NAME STRING,
+      LAST_NAME STRING,
+      NICKNAMES ARRAY<STRING>,
+      ADDRESS STRUCT<STREET_NAME STRING, NUMBER INTEGER>
+  ) WITH (KAFKA_TOPIC='users', VALUE_FORMAT='AVRO', KEY='USERID');
+
+- Arithmetic (``+,-,/,*,%``) The usual arithmetic operators may be applied to numeric types
+  (INT, BIGINT, DOUBLE)
+
+.. code:: sql
+
+  SELECT LEN(FIRST_NAME) + LEN(LAST_NAME) AS NAME_LENGTH FROM USERS;
+
+- Concatenation (``+,||``) The concatenation operator can be used to concatenate STRING values.
+
+.. code:: sql
+
+  SELECT FIRST_NAME + LAST_NAME AS FULL_NAME FROM USERS;
+
+- Source Dereference (``.``) The source dereference operator can be used to specify columns
+  by dereferencing the source stream or table.
+
+.. code:: sql
+
+  SELECT USERS.FIRST_NAME FROM USERS;
+
+- Subscript (``[subscript_expr]``) The subscript operator is used to reference the value at
+  an array index or a map key.
+
+.. code:: sql
+
+  SELECT NICKNAMES[0] FROM USERS;
+
+- STRUCT dereference (``->``) Access nested data by declaring a STRUCT and using
+  the dereference operator to access its fields:
+
+.. code:: sql
+
+   CREATE STREAM orders (
+     orderId BIGINT,
+     address STRUCT<street VARCHAR, zip INTEGER>) WITH (...);
+
+   SELECT address->city, address->zip FROM orders;
+
+- Combine `->` with `.` when using aliases:
+
+.. code:: sql
+
+   SELECT orders.address->city, o.address->zip FROM orders o;
+
+
+.. _functions:
 
 ================
 Scalar functions
@@ -1044,7 +1206,12 @@ Aggregate functions
 +------------------------+---------------------------+---------------------------------------------------------------------+
 | TOPKDISTINCT           | ``TOPKDISTINCT(col1, k)`` |  Return the distinct Top *K* values for the given column and window |
 +------------------------+---------------------------+---------------------------------------------------------------------+
-
+| WindowStart            | ``WindowStart()``         | Extract the start time of the current window, in milliseconds.      |
+|                        |                           | If the query is not windowed the function will return null.         |
++------------------------+---------------------------+---------------------------------------------------------------------+
+| WindowEnd              | ``WindowEnd()``           | Extract the end time of the current window, in milliseconds.        |
+|                        |                           | If the query is not windowed the function will return null.         |
++------------------------+---------------------------+---------------------------------------------------------------------+
 
 .. _ksql_key_requirements:
 
@@ -1080,13 +1247,11 @@ If these conditions are not met, then the results of aggregations and joins may 
 What To Do If Your Key Is Not Set or Is In A Different Format
 -------------------------------------------------------------
 
--------
 Streams
 -------
 
 For streams, just leave out the ``KEY`` property from the ``WITH`` clause. KSQL will take care of repartitioning the stream for you using the value(s) from the ``GROUP BY`` columns for aggregates, and the join predicate for joins.
 
-------
 Tables
 ------
 

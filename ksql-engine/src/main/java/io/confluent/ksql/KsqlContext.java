@@ -16,24 +16,24 @@
 
 package io.confluent.ksql;
 
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.ksql.metastore.MetaStore;
 import io.confluent.ksql.schema.registry.KsqlSchemaRegistryClientFactory;
 import io.confluent.ksql.util.KafkaTopicClientImpl;
+import io.confluent.ksql.util.KsqlConfig;
+import io.confluent.ksql.util.PersistentQueryMetadata;
+import io.confluent.ksql.util.QueryMetadata;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+
 import org.apache.kafka.streams.KafkaClientSupplier;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.processor.internals.DefaultKafkaClientSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.confluent.ksql.metastore.MetaStore;
-import io.confluent.ksql.util.KsqlConfig;
-import io.confluent.ksql.util.PersistentQueryMetadata;
-import io.confluent.ksql.util.QueryMetadata;
 
 public class KsqlContext {
 
@@ -42,21 +42,27 @@ public class KsqlContext {
   private final KsqlEngine ksqlEngine;
   private static final String KAFKA_BOOTSTRAP_SERVER_OPTION_DEFAULT = "localhost:9092";
 
-  public static KsqlContext create(KsqlConfig ksqlConfig) {
-    return create(ksqlConfig, null);
+  public static KsqlContext create(final KsqlConfig ksqlConfig) {
+    return create(
+        ksqlConfig,
+        (new KsqlSchemaRegistryClientFactory(ksqlConfig))::get);
   }
 
   public static KsqlContext create(
-      KsqlConfig ksqlConfig,
-      SchemaRegistryClient schemaRegistryClient
+      final KsqlConfig ksqlConfig,
+      final Supplier<SchemaRegistryClient> schemaRegistryClientFactory
   ) {
-    return create(ksqlConfig, schemaRegistryClient, new DefaultKafkaClientSupplier());
+    return create(
+        ksqlConfig,
+        schemaRegistryClientFactory,
+        new DefaultKafkaClientSupplier()
+    );
   }
 
   public static KsqlContext create(
       KsqlConfig ksqlConfig,
-      SchemaRegistryClient schemaRegistryClient,
-      KafkaClientSupplier clientSupplier
+      final Supplier<SchemaRegistryClient> schemaRegistryClientFactory,
+      final KafkaClientSupplier clientSupplier
   ) {
     if (ksqlConfig == null) {
       ksqlConfig = new KsqlConfig(Collections.emptyMap());
@@ -70,8 +76,7 @@ public class KsqlContext {
 
     final KsqlEngine engine = new KsqlEngine(
         new KafkaTopicClientImpl(ksqlConfig.getKsqlAdminClientConfigProps()),
-        schemaRegistryClient == null
-            ? new KsqlSchemaRegistryClientFactory(ksqlConfig).create() : schemaRegistryClient,
+        schemaRegistryClientFactory,
         clientSupplier
     );
 
@@ -94,18 +99,18 @@ public class KsqlContext {
   /**
    * Execute the ksql statement in this context.
    */
-  public void sql(String sql) {
+  public void sql(final String sql) {
     sql(sql, Collections.emptyMap());
   }
 
-  public void sql(String sql, Map<String, Object> overriddenProperties) {
-    List<QueryMetadata> queryMetadataList = ksqlEngine.buildMultipleQueries(
+  public void sql(final String sql, final Map<String, Object> overriddenProperties) {
+    final List<QueryMetadata> queryMetadataList = ksqlEngine.buildMultipleQueries(
         sql, ksqlConfig, overriddenProperties);
 
-    for (QueryMetadata queryMetadata : queryMetadataList) {
+    for (final QueryMetadata queryMetadata : queryMetadataList) {
       if (queryMetadata instanceof PersistentQueryMetadata) {
-        PersistentQueryMetadata persistentQueryMetadata = (PersistentQueryMetadata) queryMetadata;
-        persistentQueryMetadata.getKafkaStreams().start();
+        final PersistentQueryMetadata persistent = (PersistentQueryMetadata) queryMetadata;
+        persistent.getKafkaStreams().start();
       } else {
         System.err.println("Ignoring statemenst: " + sql);
         System.err.println("Only CREATE statements can run in KSQL embedded mode.");

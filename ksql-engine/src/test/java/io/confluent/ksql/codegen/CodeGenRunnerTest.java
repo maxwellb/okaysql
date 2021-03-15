@@ -16,22 +16,18 @@
 
 package io.confluent.ksql.codegen;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.both;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.not;
+
 import com.google.common.collect.ImmutableMap;
-
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
-import java.lang.reflect.InvocationTargetException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 import io.confluent.ksql.analyzer.Analysis;
 import io.confluent.ksql.analyzer.AnalysisContext;
 import io.confluent.ksql.analyzer.Analyzer;
@@ -49,17 +45,18 @@ import io.confluent.ksql.util.ExpressionMetadata;
 import io.confluent.ksql.util.GenericRowValueTypeEnforcer;
 import io.confluent.ksql.util.KsqlException;
 import io.confluent.ksql.util.MetaStoreFixture;
-
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.anyOf;
-import static org.hamcrest.Matchers.both;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.hamcrest.Matchers.not;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 
 @SuppressWarnings("SameParameterValue")
@@ -109,7 +106,7 @@ public class CodeGenRunnerTest {
             .field("CODEGEN_TEST.COL12",
                    SchemaBuilder.map(SchemaBuilder.OPTIONAL_STRING_SCHEMA, SchemaBuilder.OPTIONAL_INT32_SCHEMA).optional().build())
             .field("CODEGEN_TEST.COL13", SchemaBuilder.array(SchemaBuilder.OPTIONAL_STRING_SCHEMA).optional().build());
-        Schema metaStoreSchema = SchemaBuilder.struct()
+        final Schema metaStoreSchema = SchemaBuilder.struct()
             .field("COL0", SchemaBuilder.OPTIONAL_INT64_SCHEMA)
             .field("COL1", SchemaBuilder.OPTIONAL_STRING_SCHEMA)
             .field("COL2", SchemaBuilder.OPTIONAL_STRING_SCHEMA)
@@ -126,11 +123,11 @@ public class CodeGenRunnerTest {
             .field("COL12",
                 SchemaBuilder.map(SchemaBuilder.OPTIONAL_STRING_SCHEMA, SchemaBuilder.OPTIONAL_INT32_SCHEMA).optional().build())
             .field("COL13", SchemaBuilder.array(SchemaBuilder.OPTIONAL_STRING_SCHEMA).optional().build());
-        KsqlTopic ksqlTopic = new KsqlTopic(
+        final KsqlTopic ksqlTopic = new KsqlTopic(
             "CODEGEN_TEST",
             "codegen_test",
             new KsqlJsonTopicSerDe());
-        KsqlStream ksqlStream = new KsqlStream(
+        final KsqlStream ksqlStream = new KsqlStream(
             "sqlexpression",
             "CODEGEN_TEST", metaStoreSchema,
             metaStoreSchema.field("COL0"),
@@ -158,42 +155,42 @@ public class CodeGenRunnerTest {
 
     @Test
     public void testIsNull() throws Exception {
-        String simpleQuery = "SELECT col0 IS NULL FROM CODEGEN_TEST;";
-        Analysis analysis = analyzeQuery(simpleQuery);
+        final String simpleQuery = "SELECT col0 IS NULL FROM CODEGEN_TEST;";
+        final Analysis analysis = analyzeQuery(simpleQuery);
 
-        ExpressionMetadata expressionEvaluatorMetadata0 = codeGenRunner.buildCodeGenFromParseTree
+        final ExpressionMetadata expressionEvaluatorMetadata0 = codeGenRunner.buildCodeGenFromParseTree
             (analysis.getSelectExpressions().get(0));
         assertThat(expressionEvaluatorMetadata0.getIndexes().length, equalTo(1));
-        int idx0 = expressionEvaluatorMetadata0.getIndexes()[0];
+        final int idx0 = expressionEvaluatorMetadata0.getIndexes()[0];
         assertThat(idx0, equalTo(0));
         assertThat(expressionEvaluatorMetadata0.getUdfs().length, equalTo(1));
 
-        Object result0 = expressionEvaluatorMetadata0.getExpressionEvaluator().evaluate(new Object[]{null});
+        Object result0 = expressionEvaluatorMetadata0.evaluate(new Object[]{null});
         assertThat(result0, instanceOf(Boolean.class));
         assertThat(result0, is(true));
 
-        result0 = expressionEvaluatorMetadata0.getExpressionEvaluator().evaluate(new Object[]{12345L});
+        result0 = expressionEvaluatorMetadata0.evaluate(new Object[]{12345L});
         assertThat(result0, instanceOf(Boolean.class));
         assertThat(result0, is(false));
     }
 
     @Test
     public void testIsNotNull() throws Exception {
-        String simpleQuery = "SELECT col0 IS NOT NULL FROM CODEGEN_TEST;";
-        Analysis analysis = analyzeQuery(simpleQuery);
+        final String simpleQuery = "SELECT col0 IS NOT NULL FROM CODEGEN_TEST;";
+        final Analysis analysis = analyzeQuery(simpleQuery);
 
-        ExpressionMetadata expressionEvaluatorMetadata0 = codeGenRunner.buildCodeGenFromParseTree
+        final ExpressionMetadata expressionEvaluatorMetadata0 = codeGenRunner.buildCodeGenFromParseTree
             (analysis.getSelectExpressions().get(0));
         assertThat(expressionEvaluatorMetadata0.getIndexes().length, equalTo(1));
-        int idx0 = expressionEvaluatorMetadata0.getIndexes()[0];
+        final int idx0 = expressionEvaluatorMetadata0.getIndexes()[0];
         assertThat(idx0, equalTo(0));
         assertThat(expressionEvaluatorMetadata0.getUdfs().length, equalTo(1));
 
-        Object result0 = expressionEvaluatorMetadata0.getExpressionEvaluator().evaluate(new Object[]{null});
+        Object result0 = expressionEvaluatorMetadata0.evaluate(new Object[]{null});
         assertThat(result0, instanceOf(Boolean.class));
         assertThat(result0, is(false));
 
-        result0 = expressionEvaluatorMetadata0.getExpressionEvaluator().evaluate(new Object[]{12345L});
+        result0 = expressionEvaluatorMetadata0.evaluate(new Object[]{12345L});
         assertThat(result0, instanceOf(Boolean.class));
         assertThat(result0, is(true));
     }
@@ -225,25 +222,25 @@ public class CodeGenRunnerTest {
 
     @Test
     public void testBooleanExprArrayComparisonFails() throws Exception {
-        Integer a1[] = new Integer[]{1, 2, 3};
-        Integer a2[] = new Integer[]{1, 2, 3};
+        final Integer[] a1 = new Integer[]{1, 2, 3};
+        final Integer[] a2 = new Integer[]{1, 2, 3};
         try {
             evalBooleanExprEq(ARRAY_INDEX1, ARRAY_INDEX2, new Object[]{a1, a2});
             Assert.fail("Array comparison should throw exception");
-        } catch (KsqlException e) {
+        } catch (final KsqlException e) {
             assertThat(e.getMessage(), equalTo("Cannot compare ARRAY values"));
         }
     }
 
     @Test
     public void testBooleanExprMapComparisonFails() throws Exception {
-        HashMap<Integer, Integer> a1 = new HashMap<>();
+        final HashMap<Integer, Integer> a1 = new HashMap<>();
         a1.put(1, 2);
-        HashMap<Integer, Integer> a2 = new HashMap<>(a1);
+        final HashMap<Integer, Integer> a2 = new HashMap<>(a1);
 
         try {
             evalBooleanExprEq(MAP_INDEX1, MAP_INDEX2, new Object[]{a1, a2});
-        } catch (KsqlException e) {
+        } catch (final KsqlException e) {
             assertThat(e.getMessage(), equalTo("Cannot compare MAP values"));
         }
     }
@@ -424,9 +421,7 @@ public class CodeGenRunnerTest {
         final Map<Integer, Object> inputValues = ImmutableMap.of(1, "{\"name\":\"fred\",\"value\":1}");
 
         // When:
-        final List<Object> columns = executeExpression(query, inputValues);
-
-        // Then:
+        executeExpression(query, inputValues);
     }
 
     @Test
@@ -441,7 +436,7 @@ public class CodeGenRunnerTest {
         final ExpressionMetadata expressionMetadata
             = codeGenRunner.buildCodeGenFromParseTree(analysis.getSelectExpressions().get(0));
 
-        assertThat(expressionMetadata.getExpressionEvaluator().evaluate(new Object[]{inputs}),
+        assertThat(expressionMetadata.evaluate(new Object[]{inputs}),
             equalTo("{\"city\":\"adelaide\",\"country\":\"oz\"}"));
     }
 
@@ -465,9 +460,7 @@ public class CodeGenRunnerTest {
                 params[i] = inputs;
             }
         }
-        assertThat(metadata.getExpressionEvaluator()
-                .evaluate(params),
-            equalTo("adelaide"));
+        assertThat(metadata.evaluate(params), equalTo("adelaide"));
     }
 
     @Test
@@ -500,18 +493,18 @@ public class CodeGenRunnerTest {
             exp -> {
                 try {
                     return codeGenRunner.buildCodeGenFromParseTree(exp);
-                } catch (Exception e) {
+                } catch (final Exception e) {
                     throw new RuntimeException(e);
                 }
             };
 
         return analysis.getSelectExpressions().stream()
             .map(buildCodeGenFromParseTree)
-            .map(md -> evaluate(md, inputValues))
+            .map(md -> md.evaluate(buildParams(md, inputValues)))
             .collect(Collectors.toList());
     }
 
-    private Analysis analyzeQuery(String queryStr) {
+    private Analysis analyzeQuery(final String queryStr) {
         final List<Statement> statements = KSQL_PARSER.buildAst(queryStr, metaStore);
         final Analysis analysis = new Analysis();
         final Analyzer analyzer = new Analyzer(queryStr, analysis, metaStore, "");
@@ -519,65 +512,57 @@ public class CodeGenRunnerTest {
         return analysis;
     }
 
-    private boolean evalBooleanExprEq(int cola, int colb, Object values[]) throws Exception {
+    private boolean evalBooleanExprEq(final int cola, final int colb, final Object[] values) throws Exception {
         return evalBooleanExpr("SELECT col%d = col%d FROM CODEGEN_TEST;", cola, colb, values);
     }
 
-    private boolean evalBooleanExprNeq(int cola, int colb, Object values[]) throws Exception {
+    private boolean evalBooleanExprNeq(final int cola, final int colb, final Object[] values) throws Exception {
         return evalBooleanExpr("SELECT col%d != col%d FROM CODEGEN_TEST;", cola, colb, values);
     }
 
-    private boolean evalBooleanExprIsDistinctFrom(int cola, int colb, Object values[]) throws Exception {
+    private boolean evalBooleanExprIsDistinctFrom(final int cola, final int colb, final Object[] values) throws Exception {
         return evalBooleanExpr("SELECT col%d IS DISTINCT FROM col%d FROM CODEGEN_TEST;", cola, colb, values);
     }
 
-    private boolean evalBooleanExprLessThan(int cola, int colb, Object values[]) throws Exception {
+    private boolean evalBooleanExprLessThan(final int cola, final int colb, final Object[] values) throws Exception {
         return evalBooleanExpr("SELECT col%d < col%d FROM CODEGEN_TEST;", cola, colb, values);
     }
 
-    private boolean evalBooleanExprLessThanEq(int cola, int colb, Object values[]) throws Exception {
+    private boolean evalBooleanExprLessThanEq(final int cola, final int colb, final Object[] values) throws Exception {
         return evalBooleanExpr("SELECT col%d <= col%d FROM CODEGEN_TEST;", cola, colb, values);
     }
 
-    private boolean evalBooleanExprGreaterThan(int cola, int colb, Object values[]) throws Exception {
+    private boolean evalBooleanExprGreaterThan(final int cola, final int colb, final Object[] values) throws Exception {
         return evalBooleanExpr("SELECT col%d > col%d FROM CODEGEN_TEST;", cola, colb, values);
     }
 
-    private boolean evalBooleanExprGreaterThanEq(int cola, int colb, Object values[]) throws Exception {
+    private boolean evalBooleanExprGreaterThanEq(final int cola, final int colb, final Object[] values) throws Exception {
         return evalBooleanExpr("SELECT col%d >= col%d FROM CODEGEN_TEST;", cola, colb, values);
     }
 
-    private boolean evalBooleanExpr(String queryFormat, int cola, int colb, Object values[])
+    private boolean evalBooleanExpr(
+        final String queryFormat, final int cola, final int colb, final Object[] values)
         throws Exception {
-        String simpleQuery = String.format(queryFormat, cola, colb);
-        Analysis analysis = analyzeQuery(simpleQuery);
+        final String simpleQuery = String.format(queryFormat, cola, colb);
+        final Analysis analysis = analyzeQuery(simpleQuery);
 
-        ExpressionMetadata expressionEvaluatorMetadata0 = codeGenRunner.buildCodeGenFromParseTree
+        final ExpressionMetadata expressionEvaluatorMetadata0 = codeGenRunner.buildCodeGenFromParseTree
             (analysis.getSelectExpressions().get(0));
         assertThat(expressionEvaluatorMetadata0.getIndexes().length, equalTo(2));
-        int idx0 = expressionEvaluatorMetadata0.getIndexes()[0];
-        int idx1 = expressionEvaluatorMetadata0.getIndexes()[1];
+        final int idx0 = expressionEvaluatorMetadata0.getIndexes()[0];
+        final int idx1 = expressionEvaluatorMetadata0.getIndexes()[1];
         assertThat(idx0, anyOf(equalTo(cola), equalTo(colb)));
         assertThat(idx1, anyOf(equalTo(cola), equalTo(colb)));
         assertThat(idx0, not(equalTo(idx1)));
         if (idx0 == colb) {
-            Object tmp = values[0];
+            final Object tmp = values[0];
             values[0] = values[1];
             values[1] = tmp;
         }
         assertThat(expressionEvaluatorMetadata0.getUdfs().length, equalTo(2));
-        Object result0 = expressionEvaluatorMetadata0.getExpressionEvaluator().evaluate(values);
+        final Object result0 = expressionEvaluatorMetadata0.evaluate(values);
         assertThat(result0, instanceOf(Boolean.class));
         return (Boolean)result0;
-    }
-
-    private Object evaluate(final ExpressionMetadata md,
-                            final Map<Integer, Object> inputValues) {
-        try {
-            return md.getExpressionEvaluator().evaluate(buildParams(md, inputValues));
-        } catch (InvocationTargetException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private Object[] buildParams(final ExpressionMetadata metadata,
@@ -586,11 +571,11 @@ public class CodeGenRunnerTest {
         final Object[] params = new Object[udfs.length];
 
         int argsIdx = 0;
-        for (int i : metadata.getIndexes()) {
+        for (final int i : metadata.getIndexes()) {
             if (i == -1) {
                 params[argsIdx] = udfs[argsIdx++];
             } else {
-                Object param = genericRowValueTypeEnforcer.enforceFieldType(i, inputValues.get(i));
+                final Object param = genericRowValueTypeEnforcer.enforceFieldType(i, inputValues.get(i));
                 params[argsIdx++] = param;
             }
         }

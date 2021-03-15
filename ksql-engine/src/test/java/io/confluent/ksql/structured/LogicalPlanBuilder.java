@@ -16,8 +16,6 @@
  */
 package io.confluent.ksql.structured;
 
-import java.util.List;
-
 import io.confluent.ksql.analyzer.AggregateAnalysis;
 import io.confluent.ksql.analyzer.AggregateAnalyzer;
 import io.confluent.ksql.analyzer.Analysis;
@@ -32,6 +30,7 @@ import io.confluent.ksql.parser.tree.Statement;
 import io.confluent.ksql.planner.LogicalPlanner;
 import io.confluent.ksql.planner.plan.PlanNode;
 import io.confluent.ksql.util.AggregateExpressionRewriter;
+import java.util.List;
 
 public class LogicalPlanBuilder {
 
@@ -43,7 +42,7 @@ public class LogicalPlanBuilder {
     this.metaStore = metaStore;
   }
 
-  public PlanNode buildLogicalPlan(String queryStr) {
+  public PlanNode buildLogicalPlan(final String queryStr) {
     final List<Statement> statements = parser.buildAst(queryStr, metaStore);
     final Analysis analysis = new Analysis();
     final Analyzer analyzer = new Analyzer(queryStr, analysis, metaStore, "");
@@ -52,7 +51,7 @@ public class LogicalPlanBuilder {
     final AggregateAnalyzer aggregateAnalyzer = new AggregateAnalyzer(aggregateAnalysis, analysis, functionRegistry);
     final AggregateExpressionRewriter aggregateExpressionRewriter = new AggregateExpressionRewriter
         (functionRegistry);
-    for (Expression expression: analysis.getSelectExpressions()) {
+    for (final Expression expression: analysis.getSelectExpressions()) {
       aggregateAnalyzer.process(expression, new AnalysisContext(null));
       if (!aggregateAnalyzer.isHasAggregateFunction()) {
         aggregateAnalysis.addNonAggResultColumns(expression);

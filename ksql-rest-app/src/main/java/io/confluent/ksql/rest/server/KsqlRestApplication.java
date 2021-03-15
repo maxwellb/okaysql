@@ -17,42 +17,11 @@
 package io.confluent.ksql.rest.server;
 
 
+import com.fasterxml.jackson.jaxrs.base.JsonParseExceptionMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-
-import com.fasterxml.jackson.jaxrs.base.JsonParseExceptionMapper;
-
-import io.confluent.ksql.rest.util.JsonMapper;
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.common.config.TopicConfig;
-import org.apache.kafka.common.errors.UnsupportedVersionException;
-import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.Serializer;
-import org.eclipse.jetty.websocket.jsr356.server.ServerContainer;
-import org.glassfish.jersey.server.ServerProperties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.Console;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.Executors;
-
-import javax.websocket.DeploymentException;
-import javax.websocket.server.ServerEndpoint;
-import javax.websocket.server.ServerEndpointConfig;
-import javax.websocket.server.ServerEndpointConfig.Configurator;
-import javax.ws.rs.core.Configurable;
-
 import io.confluent.kafka.serializers.KafkaJsonDeserializer;
 import io.confluent.kafka.serializers.KafkaJsonDeserializerConfig;
 import io.confluent.kafka.serializers.KafkaJsonSerializer;
@@ -84,6 +53,7 @@ import io.confluent.ksql.rest.server.resources.ServerInfoResource;
 import io.confluent.ksql.rest.server.resources.StatusResource;
 import io.confluent.ksql.rest.server.resources.streaming.StreamedQueryResource;
 import io.confluent.ksql.rest.server.resources.streaming.WSQueryEndpoint;
+import io.confluent.ksql.rest.util.JsonMapper;
 import io.confluent.ksql.util.KafkaTopicClient;
 import io.confluent.ksql.util.KsqlConfig;
 import io.confluent.ksql.util.KsqlException;
@@ -94,6 +64,31 @@ import io.confluent.ksql.version.metrics.collector.KsqlModuleType;
 import io.confluent.rest.Application;
 import io.confluent.rest.RestConfig;
 import io.confluent.rest.validation.JacksonMessageBodyProvider;
+import java.io.Console;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.Executors;
+import javax.websocket.DeploymentException;
+import javax.websocket.server.ServerEndpoint;
+import javax.websocket.server.ServerEndpointConfig;
+import javax.websocket.server.ServerEndpointConfig.Configurator;
+import javax.ws.rs.core.Configurable;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.common.config.TopicConfig;
+import org.apache.kafka.common.errors.UnsupportedVersionException;
+import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.Serializer;
+import org.eclipse.jetty.websocket.jsr356.server.ServerContainer;
+import org.glassfish.jersey.server.ServerProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class KsqlRestApplication extends Application<KsqlRestConfig> implements Executable {
 
@@ -119,15 +114,15 @@ public class KsqlRestApplication extends Application<KsqlRestConfig> implements 
   }
 
   private KsqlRestApplication(
-      KsqlEngine ksqlEngine,
-      KsqlConfig ksqlConfig,
-      KsqlRestConfig config,
-      CommandRunner commandRunner,
-      RootDocument rootDocument,
-      StatusResource statusResource,
-      StreamedQueryResource streamedQueryResource,
-      KsqlResource ksqlResource,
-      VersionCheckerAgent versionCheckerAgent
+      final KsqlEngine ksqlEngine,
+      final KsqlConfig ksqlConfig,
+      final KsqlRestConfig config,
+      final CommandRunner commandRunner,
+      final RootDocument rootDocument,
+      final StatusResource statusResource,
+      final StreamedQueryResource streamedQueryResource,
+      final KsqlResource ksqlResource,
+      final VersionCheckerAgent versionCheckerAgent
   ) {
     super(config);
     this.ksqlConfig = ksqlConfig;
@@ -148,7 +143,7 @@ public class KsqlRestApplication extends Application<KsqlRestConfig> implements 
   }
 
   @Override
-  public void setupResources(Configurable<?> config, KsqlRestConfig appConfig) {
+  public void setupResources(final Configurable<?> config, final KsqlRestConfig appConfig) {
     config.register(rootDocument);
     config.register(new ServerInfoResource(serverInfo));
     config.register(statusResource);
@@ -162,7 +157,7 @@ public class KsqlRestApplication extends Application<KsqlRestConfig> implements 
   public void start() throws Exception {
     super.start();
     commandRunnerThread.start();
-    Properties metricsProperties = new Properties();
+    final Properties metricsProperties = new Properties();
     metricsProperties.putAll(getConfiguration().getOriginals());
     if (versionCheckerAgent != null) {
       versionCheckerAgent.start(KsqlModuleType.SERVER, metricsProperties);
@@ -177,18 +172,20 @@ public class KsqlRestApplication extends Application<KsqlRestConfig> implements 
     commandRunner.close();
     try {
       commandRunnerThread.join();
-    } catch (InterruptedException exception) {
+    } catch (final InterruptedException exception) {
       log.error("Interrupted while waiting for CommandRunner thread to complete", exception);
     }
     super.stop();
   }
 
   @Override
-  public void configureBaseApplication(Configurable<?> config, Map<String, String> metricTags) {
+  public void configureBaseApplication(
+      final Configurable<?> config,
+      final Map<String, String> metricTags) {
     // Would call this but it registers additional, unwanted exception mappers
     // super.configureBaseApplication(config, metricTags);
     // Instead, just copy+paste the desired parts from Application.configureBaseApplication() here:
-    JacksonMessageBodyProvider jsonProvider =
+    final JacksonMessageBodyProvider jsonProvider =
         new JacksonMessageBodyProvider(JsonMapper.INSTANCE.mapper);
     config.register(jsonProvider);
     config.register(JsonParseExceptionMapper.class);
@@ -198,7 +195,7 @@ public class KsqlRestApplication extends Application<KsqlRestConfig> implements 
   }
 
   @Override
-  protected void registerWebSocketEndpoints(ServerContainer container) {
+  protected void registerWebSocketEndpoints(final ServerContainer container) {
     try {
       final ListeningScheduledExecutorService exec = MoreExecutors.listeningDecorator(
           Executors.newScheduledThreadPool(
@@ -221,7 +218,7 @@ public class KsqlRestApplication extends Application<KsqlRestConfig> implements 
               .configurator(new Configurator() {
                 @Override
                 @SuppressWarnings("unchecked")
-                public <T> T getEndpointInstance(Class<T> endpointClass) {
+                public <T> T getEndpointInstance(final Class<T> endpointClass) {
                   return (T) new WSQueryEndpoint(
                       ksqlConfig,
                       JsonMapper.INSTANCE.mapper,
@@ -234,14 +231,14 @@ public class KsqlRestApplication extends Application<KsqlRestConfig> implements 
               })
               .build()
       );
-    } catch (DeploymentException e) {
+    } catch (final DeploymentException e) {
       log.error("Unable to create websockets endpoint", e);
     }
   }
 
   public static KsqlRestApplication buildApplication(
-      KsqlRestConfig restConfig,
-      VersionCheckerAgent versionCheckerAgent
+      final KsqlRestConfig restConfig,
+      final VersionCheckerAgent versionCheckerAgent
   )
       throws Exception {
 
@@ -249,16 +246,16 @@ public class KsqlRestApplication extends Application<KsqlRestConfig> implements 
 
     final KsqlConfig ksqlConfig = new KsqlConfig(restConfig.getKsqlConfigProperties());
 
-    KsqlEngine ksqlEngine = new KsqlEngine(ksqlConfig);
-    KafkaTopicClient topicClient = ksqlEngine.getTopicClient();
+    final KsqlEngine ksqlEngine = new KsqlEngine(ksqlConfig);
+    final KafkaTopicClient topicClient = ksqlEngine.getTopicClient();
     UdfLoader.newInstance(ksqlConfig, ksqlEngine.getMetaStore(), ksqlInstallDir).load();
 
-    String ksqlServiceId = ksqlConfig.getString(KsqlConfig.KSQL_SERVICE_ID_CONFIG);
-    String commandTopic =
+    final String ksqlServiceId = ksqlConfig.getString(KsqlConfig.KSQL_SERVICE_ID_CONFIG);
+    final String commandTopic =
         restConfig.getCommandTopic(ksqlServiceId);
     ensureCommandTopic(restConfig, topicClient, commandTopic);
 
-    Map<String, Expression> commandTopicProperties = new HashMap<>();
+    final Map<String, Expression> commandTopicProperties = new HashMap<>();
     commandTopicProperties.put(
         DdlConfig.VALUE_FORMAT_PROPERTY,
         new StringLiteral("json")
@@ -292,49 +289,49 @@ public class KsqlRestApplication extends Application<KsqlRestConfig> implements 
         true
     ), false);
 
-    Map<String, Object> commandConsumerProperties = restConfig.getCommandConsumerProperties();
-    KafkaConsumer<CommandId, Command> commandConsumer = new KafkaConsumer<>(
+    final Map<String, Object> commandConsumerProperties = restConfig.getCommandConsumerProperties();
+    final KafkaConsumer<CommandId, Command> commandConsumer = new KafkaConsumer<>(
         commandConsumerProperties,
         getJsonDeserializer(CommandId.class, true),
         getJsonDeserializer(Command.class, false)
     );
 
-    KafkaProducer<CommandId, Command> commandProducer = new KafkaProducer<>(
+    final KafkaProducer<CommandId, Command> commandProducer = new KafkaProducer<>(
         restConfig.getCommandProducerProperties(),
         getJsonSerializer(true),
         getJsonSerializer(false)
     );
 
-    CommandStore commandStore = new CommandStore(
+    final CommandStore commandStore = new CommandStore(
         commandTopic,
         commandConsumer,
         commandProducer,
         new CommandIdAssigner(ksqlEngine.getMetaStore())
     );
 
-    StatementParser statementParser = new StatementParser(ksqlEngine);
+    final StatementParser statementParser = new StatementParser(ksqlEngine);
 
-    StatementExecutor statementExecutor = new StatementExecutor(
+    final StatementExecutor statementExecutor = new StatementExecutor(
         ksqlConfig,
         ksqlEngine,
         statementParser
     );
 
-    CommandRunner commandRunner = new CommandRunner(
+    final CommandRunner commandRunner = new CommandRunner(
         statementExecutor,
         commandStore
     );
 
-    RootDocument rootDocument = new RootDocument();
+    final RootDocument rootDocument = new RootDocument();
 
-    StatusResource statusResource = new StatusResource(statementExecutor);
-    StreamedQueryResource streamedQueryResource = new StreamedQueryResource(
+    final StatusResource statusResource = new StatusResource(statementExecutor);
+    final StreamedQueryResource streamedQueryResource = new StreamedQueryResource(
         ksqlConfig,
         ksqlEngine,
         statementParser,
         restConfig.getLong(KsqlRestConfig.STREAMED_QUERY_DISCONNECT_CHECK_MS_CONFIG)
     );
-    KsqlResource ksqlResource = new KsqlResource(
+    final KsqlResource ksqlResource = new KsqlResource(
         ksqlConfig,
         ksqlEngine,
         commandStore,
@@ -412,24 +409,26 @@ public class KsqlRestApplication extends Application<KsqlRestConfig> implements 
           replicationFactor,
           Collections.singletonMap(TopicConfig.RETENTION_MS_CONFIG, requiredTopicRetention)
       );
-    } catch (KafkaTopicException e) {
+    } catch (final KafkaTopicException e) {
       log.info("Command Topic Exists: {}", e.getMessage());
     }
   }
 
-  private static <T> Serializer<T> getJsonSerializer(boolean isKey) {
-    Serializer<T> result = new KafkaJsonSerializer<>();
+  private static <T> Serializer<T> getJsonSerializer(final boolean isKey) {
+    final Serializer<T> result = new KafkaJsonSerializer<>();
     result.configure(Collections.emptyMap(), isKey);
     return result;
   }
 
-  private static <T> Deserializer<T> getJsonDeserializer(Class<T> classs, boolean isKey) {
-    Deserializer<T> result = new KafkaJsonDeserializer<>();
-    String typeConfigProperty = isKey
+  private static <T> Deserializer<T> getJsonDeserializer(
+      final Class<T> classs,
+      final boolean isKey) {
+    final Deserializer<T> result = new KafkaJsonDeserializer<>();
+    final String typeConfigProperty = isKey
                                 ? KafkaJsonDeserializerConfig.JSON_KEY_TYPE
                                 : KafkaJsonDeserializerConfig.JSON_VALUE_TYPE;
 
-    Map<String, ?> props = Collections.singletonMap(
+    final Map<String, ?> props = Collections.singletonMap(
         typeConfigProperty,
         classs
     );

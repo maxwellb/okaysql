@@ -16,21 +16,6 @@
 
 package io.confluent.ksql;
 
-import io.confluent.ksql.parser.SqlFormatter;
-import io.confluent.ksql.util.KsqlConfig;
-import io.confluent.ksql.util.StatementWithSchema;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.streams.KafkaClientSupplier;
-import org.apache.kafka.streams.StreamsBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import io.confluent.ksql.analyzer.AggregateAnalysis;
 import io.confluent.ksql.analyzer.Analysis;
 import io.confluent.ksql.analyzer.QueryAnalyzer;
@@ -42,6 +27,7 @@ import io.confluent.ksql.metastore.KsqlStream;
 import io.confluent.ksql.metastore.KsqlTopic;
 import io.confluent.ksql.metastore.MetaStore;
 import io.confluent.ksql.metastore.StructuredDataSource;
+import io.confluent.ksql.parser.SqlFormatter;
 import io.confluent.ksql.parser.tree.AbstractStreamCreateStatement;
 import io.confluent.ksql.parser.tree.DdlStatement;
 import io.confluent.ksql.parser.tree.Expression;
@@ -60,7 +46,18 @@ import io.confluent.ksql.util.KsqlConfig;
 import io.confluent.ksql.util.KsqlException;
 import io.confluent.ksql.util.Pair;
 import io.confluent.ksql.util.QueryMetadata;
+import io.confluent.ksql.util.StatementWithSchema;
 import io.confluent.ksql.util.StringUtil;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.streams.KafkaClientSupplier;
+import org.apache.kafka.streams.StreamsBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 class QueryEngine {
 
@@ -80,13 +77,13 @@ class QueryEngine {
       final List<Pair<String, Statement>> statementList,
       final KsqlConfig config) {
 
-    List<Pair<String, PlanNode>> logicalPlansList = new ArrayList<>();
+    final List<Pair<String, PlanNode>> logicalPlansList = new ArrayList<>();
     // TODO: the purpose of tempMetaStore here
-    MetaStore tempMetaStore = metaStore.clone();
+    final MetaStore tempMetaStore = metaStore.clone();
 
-    for (Pair<String, Statement> statementQueryPair : statementList) {
+    for (final Pair<String, Statement> statementQueryPair : statementList) {
       if (statementQueryPair.getRight() instanceof Query) {
-        PlanNode logicalPlan = buildQueryLogicalPlan(
+        final PlanNode logicalPlan = buildQueryLogicalPlan(
             statementQueryPair.getLeft(),
             (Query) statementQueryPair.getRight(),
             tempMetaStore, config
@@ -116,10 +113,10 @@ class QueryEngine {
     final PlanNode logicalPlan
         = new LogicalPlanner(analysis, aggAnalysis, ksqlEngine.getFunctionRegistry()).buildPlan();
     if (logicalPlan instanceof KsqlStructuredDataOutputNode) {
-      KsqlStructuredDataOutputNode ksqlStructuredDataOutputNode =
+      final KsqlStructuredDataOutputNode ksqlStructuredDataOutputNode =
           (KsqlStructuredDataOutputNode) logicalPlan;
 
-      StructuredDataSource
+      final StructuredDataSource
           structuredDataSource =
           new KsqlStream(
               sqlExpression,
@@ -146,20 +143,21 @@ class QueryEngine {
       final boolean updateMetastore
   ) {
 
-    List<QueryMetadata> physicalPlans = new ArrayList<>();
+    final List<QueryMetadata> physicalPlans = new ArrayList<>();
 
     for (int i = 0; i < logicalPlans.size(); i++) {
 
-      Pair<String, PlanNode> statementPlanPair = logicalPlans.get(i);
+      final Pair<String, PlanNode> statementPlanPair = logicalPlans.get(i);
       if (statementPlanPair.getRight() == null) {
-        Statement statement = statementList.get(i).getRight();
+        final Statement statement = statementList.get(i).getRight();
         if (!(statement instanceof DdlStatement)) {
           throw new KsqlException("expecting a statement implementing DDLStatement but got: "
                                   + statement.getClass());
         }
         handleDdlStatement(
             statementPlanPair.getLeft(),
-            (DdlStatement) statement
+            (DdlStatement) statement,
+            overriddenProperties
         );
       } else {
         buildQueryPhysicalPlan(
@@ -192,7 +190,7 @@ class QueryEngine {
         overriddenProperties,
         updateMetastore,
         ksqlEngine.getMetaStore(),
-        ksqlEngine.getSchemaRegistryClient(),
+        ksqlEngine.getSchemaRegistryClientFactory(),
         ksqlEngine.getQueryIdGenerator(),
         new KafkaStreamsBuilderImpl(clientSupplier)
     );
@@ -200,10 +198,12 @@ class QueryEngine {
   }
 
 
-  DdlCommandResult handleDdlStatement(String sqlExpression, DdlStatement statement) {
+  DdlCommandResult handleDdlStatement(String sqlExpression,
+      DdlStatement statement,
+      final Map<String, Object> overriddenProperties) {
 
     if (statement instanceof AbstractStreamCreateStatement) {
-      AbstractStreamCreateStatement streamCreateStatement = (AbstractStreamCreateStatement)
+      final AbstractStreamCreateStatement streamCreateStatement = (AbstractStreamCreateStatement)
           statement;
       final StatementWithSchema statementWithSchema
           = maybeAddFieldsFromSchemaRegistry(streamCreateStatement, sqlExpression);
@@ -211,22 +211,23 @@ class QueryEngine {
       statement = (DdlStatement) statementWithSchema.getStatement();
       sqlExpression = statementWithSchema.getStatementText();
     }
-    final DdlCommand command = ddlCommandFactory.create(sqlExpression, statement);
+    final DdlCommand command =
+        ddlCommandFactory.create(sqlExpression, statement, overriddenProperties);
     return ksqlEngine.getDdlCommandExec().execute(command, false);
   }
 
   StructuredDataSource getResultDatasource(final Select select, final String name) {
 
     SchemaBuilder dataSource = SchemaBuilder.struct().name(name);
-    for (SelectItem selectItem : select.getSelectItems()) {
+    for (final SelectItem selectItem : select.getSelectItems()) {
       if (selectItem instanceof SingleColumn) {
-        SingleColumn singleColumn = (SingleColumn) selectItem;
-        String fieldName = singleColumn.getAlias().get();
+        final SingleColumn singleColumn = (SingleColumn) selectItem;
+        final String fieldName = singleColumn.getAlias().get();
         dataSource = dataSource.field(fieldName, Schema.OPTIONAL_BOOLEAN_SCHEMA);
       }
     }
 
-    KsqlTopic ksqlTopic = new KsqlTopic(name, name, null);
+    final KsqlTopic ksqlTopic = new KsqlTopic(name, name, null);
     return new KsqlStream(
         "QueryEngine-DDLCommand-Not-Needed",
         name,

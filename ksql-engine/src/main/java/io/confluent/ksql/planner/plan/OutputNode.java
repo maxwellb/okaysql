@@ -16,24 +16,19 @@
 
 package io.confluent.ksql.planner.plan;
 
-import com.google.common.collect.ImmutableList;
+import static java.util.Objects.requireNonNull;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import org.apache.kafka.connect.data.Schema;
-
+import com.google.common.collect.ImmutableList;
+import io.confluent.ksql.util.KafkaTopicClient;
+import io.confluent.ksql.util.timestamp.TimestampExtractionPolicy;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-
 import javax.annotation.concurrent.Immutable;
-
-import io.confluent.ksql.util.KafkaTopicClient;
-import io.confluent.ksql.util.timestamp.TimestampExtractionPolicy;
-
-import static java.util.Objects.requireNonNull;
+import org.apache.kafka.connect.data.Schema;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @Immutable
@@ -117,12 +112,12 @@ public abstract class OutputNode
   }
 
   @Override
-  protected int getPartitions(KafkaTopicClient kafkaTopicClient) {
+  protected int getPartitions(final KafkaTopicClient kafkaTopicClient) {
     return source.getPartitions(kafkaTopicClient);
   }
 
   @Override
-  public <C, R> R accept(PlanVisitor<C, R> visitor, C context) {
+  public <C, R> R accept(final PlanVisitor<C, R> visitor, final C context) {
     return visitor.visitOutput(this, context);
   }
 

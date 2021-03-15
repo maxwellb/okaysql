@@ -16,15 +16,13 @@
 
 package io.confluent.ksql.function;
 
-import org.apache.kafka.connect.data.Schema;
-
+import io.confluent.ksql.function.udf.Kudf;
+import io.confluent.ksql.util.KsqlException;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-
-import io.confluent.ksql.function.udf.Kudf;
-import io.confluent.ksql.util.KsqlException;
+import org.apache.kafka.connect.data.Schema;
 
 public class KsqlFunction {
 
@@ -44,7 +42,7 @@ public class KsqlFunction {
     this(returnType, arguments, functionName, kudfClass, () -> {
       try {
         return kudfClass.newInstance();
-      } catch (Exception e) {
+      } catch (final Exception e) {
         throw new KsqlException("Failed to create instance of kudfClass "
              + kudfClass
              + " for function "  + functionName, e);
@@ -97,14 +95,14 @@ public class KsqlFunction {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(final Object o) {
     if (this == o) {
       return true;
     }
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    KsqlFunction that = (KsqlFunction) o;
+    final KsqlFunction that = (KsqlFunction) o;
     return Objects.equals(returnType, that.returnType)
         && Objects.equals(arguments, that.arguments)
         && Objects.equals(functionName, that.functionName)

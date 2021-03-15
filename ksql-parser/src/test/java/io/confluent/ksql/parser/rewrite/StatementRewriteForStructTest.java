@@ -23,8 +23,6 @@ import static org.hamcrest.core.IsInstanceOf.instanceOf;
 import io.confluent.ksql.function.TestFunctionRegistry;
 import io.confluent.ksql.metastore.MetaStore;
 import io.confluent.ksql.parser.KsqlParser;
-import io.confluent.ksql.parser.SqlBaseParser.SingleStatementContext;
-import io.confluent.ksql.parser.tree.CreateAsSelect;
 import io.confluent.ksql.parser.tree.CreateStreamAsSelect;
 import io.confluent.ksql.parser.tree.CreateTable;
 import io.confluent.ksql.parser.tree.CreateTableAsSelect;
@@ -36,7 +34,6 @@ import io.confluent.ksql.parser.tree.Query;
 import io.confluent.ksql.parser.tree.QuerySpecification;
 import io.confluent.ksql.parser.tree.SingleColumn;
 import io.confluent.ksql.parser.tree.Statement;
-import io.confluent.ksql.util.DataSourceExtractor;
 import io.confluent.ksql.util.MetaStoreFixture;
 import org.easymock.EasyMock;
 import org.junit.Before;
@@ -132,7 +129,7 @@ public class StatementRewriteForStructTest {
         equalTo("FETCH_FIELD_FROM_STRUCT(NESTED_STREAM.MAPCOL['key'], 'NAME')"));
   }
 
-  private QuerySpecification getQuerySpecification(Statement statement) {
+  private QuerySpecification getQuerySpecification(final Statement statement) {
     assertThat(statement, instanceOf(Query.class));
     final Query query = (Query) statement;
     assertThat(query.getQueryBody(), instanceOf(QuerySpecification.class));

@@ -17,13 +17,11 @@
 
 package io.confluent.ksql.analyzer;
 
-import org.junit.Test;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import io.confluent.ksql.function.InternalFunctionRegistry;
 import io.confluent.ksql.metastore.KsqlStream;
@@ -44,12 +42,12 @@ import io.confluent.ksql.util.KsqlConfig;
 import io.confluent.ksql.util.KsqlException;
 import io.confluent.ksql.util.MetaStoreFixture;
 import io.confluent.ksql.util.Pair;
-
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.Test;
 
 public class QueryAnalyzerTest {
 
@@ -119,7 +117,7 @@ public class QueryAnalyzerTest {
     try {
       queryAnalyzer.analyzeAggregate(query, analysis);
       fail("should have thrown KsqlException as aggregate query doesn't have a groupby clause");
-    } catch (KsqlException e) {
+    } catch (final KsqlException e) {
       // ok
     }
 
@@ -136,7 +134,7 @@ public class QueryAnalyzerTest {
     try {
       queryAnalyzer.analyzeAggregate(query, analysis);
       fail("should have thrown KsqlException as aggregate query doesn't have a groupby clause");
-    } catch (KsqlException e) {
+    } catch (final KsqlException e) {
       // ok
     }
   }
@@ -165,8 +163,12 @@ public class QueryAnalyzerTest {
     final Query query = (Query) statements.get(0);
     try {
       queryAnalyzer.analyze("sqlExpression", query);
-    } catch (KsqlException ex) {
-      assertThat(ex.getMessage().trim(), equalTo("Line: 1, Col: 46 : Invalid join criteria (TEST1.COL1 = TEST2.COLL). Key for TEST2 is not set correctly."));
+    } catch (final KsqlException ex) {
+      assertThat(
+          ex.getMessage().trim(),
+          equalTo(
+              "Line: 1, Col: 46 : Invalid join criteria (TEST1.COL1 = TEST2.COLL). "
+                  + "Could not find a join criteria operand for TEST2." ));
     }
   }
 

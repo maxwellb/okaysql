@@ -18,7 +18,6 @@ package io.confluent.ksql.rest.entity;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -28,8 +27,8 @@ public class SourceDescriptionList extends KsqlEntity {
 
   @JsonCreator
   public SourceDescriptionList(
-      @JsonProperty("statementText") String statementText,
-      @JsonProperty("sourceDescriptions") List<SourceDescription> sourceDescriptions
+      @JsonProperty("statementText") final String statementText,
+      @JsonProperty("sourceDescriptions") final List<SourceDescription> sourceDescriptions
   ) {
     super(statementText);
     this.sourceDescriptions = sourceDescriptions;
@@ -40,14 +39,14 @@ public class SourceDescriptionList extends KsqlEntity {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(final Object o) {
     if (this == o) {
       return true;
     }
     if (!(o instanceof SourceDescriptionList)) {
       return false;
     }
-    SourceDescriptionList that = (SourceDescriptionList) o;
+    final SourceDescriptionList that = (SourceDescriptionList) o;
     return Objects.equals(sourceDescriptions, that.sourceDescriptions);
   }
 

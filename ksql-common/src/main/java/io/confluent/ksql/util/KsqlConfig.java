@@ -16,8 +16,16 @@
 
 package io.confluent.ksql.util;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.confluent.ksql.errors.LogMetricAndContinueExceptionHandler;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -26,16 +34,6 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.streams.StreamsConfig;
-
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import io.confluent.ksql.errors.LogMetricAndContinueExceptionHandler;
 
 public class KsqlConfig extends AbstractConfig implements Cloneable {
 
@@ -318,7 +316,7 @@ public class KsqlConfig extends AbstractConfig implements Cloneable {
         new Pair<>("", PRODUCER_ABSTRACT_CONFIG),
         new Pair<>("", STREAMS_ABSTRACT_CONFIG)
     );
-    for (Pair<String, AbstractConfig> spec : configSpecsToTry) {
+    for (final Pair<String, AbstractConfig> spec : configSpecsToTry) {
       final ConfigValue configValue
           = resolveConfig(spec.getLeft(), spec.getRight(), key, value);
       if (configValue.type.isPresent()) {
@@ -346,7 +344,7 @@ public class KsqlConfig extends AbstractConfig implements Cloneable {
     this(true, props);
   }
 
-  public KsqlConfig(boolean current, final Map<?, ?> props) {
+  public KsqlConfig(final boolean current, final Map<?, ?> props) {
     super(configDef(current), props);
 
     final Map<String, Object> streamsConfigDefaults = new HashMap<>();
@@ -381,7 +379,7 @@ public class KsqlConfig extends AbstractConfig implements Cloneable {
 
   public Map<String, Object> getKsqlStreamConfigProps() {
     final Map<String, Object> props = new HashMap<>();
-    for (ConfigValue config : ksqlStreamConfigProps.values()) {
+    for (final ConfigValue config : ksqlStreamConfigProps.values()) {
       props.put(config.key, config.value);
     }
     return Collections.unmodifiableMap(props);
@@ -462,7 +460,7 @@ public class KsqlConfig extends AbstractConfig implements Cloneable {
 
   private int timestampColumnIndex = -1;
 
-  public void setKsqlTimestampColumnIndex(int index) {
+  public void setKsqlTimestampColumnIndex(final int index) {
     this.timestampColumnIndex = index;
   }
 

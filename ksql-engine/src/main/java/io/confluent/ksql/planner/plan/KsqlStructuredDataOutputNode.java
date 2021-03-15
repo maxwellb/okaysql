@@ -16,21 +16,9 @@
 
 package io.confluent.ksql.planner.plan;
 
-import com.google.common.collect.ImmutableMap;
-
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
-import org.apache.kafka.common.config.TopicConfig;
-import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.streams.StreamsBuilder;
-
-import java.util.Collections;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-
+import com.google.common.collect.ImmutableMap;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.ksql.ddl.DdlConfig;
 import io.confluent.ksql.function.FunctionRegistry;
@@ -44,6 +32,16 @@ import io.confluent.ksql.util.KsqlConfig;
 import io.confluent.ksql.util.KsqlException;
 import io.confluent.ksql.util.SchemaUtil;
 import io.confluent.ksql.util.timestamp.TimestampExtractionPolicy;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
+
+import org.apache.kafka.common.config.TopicConfig;
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.streams.StreamsBuilder;
 
 public class KsqlStructuredDataOutputNode extends OutputNode {
 
@@ -62,12 +60,12 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
       @JsonProperty("timestamp") final TimestampExtractionPolicy timestampExtractionPolicy,
       @JsonProperty("key") final Field keyField,
       @JsonProperty("ksqlTopic") final KsqlTopic ksqlTopic,
-      @JsonProperty("topicName") final String topicName,
+      @JsonProperty("topicName") final String kafkaTopicName,
       @JsonProperty("outputProperties") final Map<String, Object> outputProperties,
       @JsonProperty("limit") final Optional<Integer> limit,
       @JsonProperty("doCreateInto") final boolean doCreateInto) {
     super(id, source, schema, limit, timestampExtractionPolicy);
-    this.kafkaTopicName = topicName;
+    this.kafkaTopicName = kafkaTopicName;
     this.keyField = keyField;
     this.ksqlTopic = ksqlTopic;
     this.outputProperties = outputProperties;
@@ -94,7 +92,7 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
       final KafkaTopicClient kafkaTopicClient,
       final FunctionRegistry functionRegistry,
       final Map<String, Object> props,
-      final SchemaRegistryClient schemaRegistryClient
+      final Supplier<SchemaRegistryClient> schemaRegistryClientFactory
   ) {
     final PlanNode source = getSource();
     final SchemaKStream schemaKStream = source.buildStream(
@@ -103,7 +101,7 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
         kafkaTopicClient,
         functionRegistry,
         props,
-        schemaRegistryClient
+        schemaRegistryClientFactory
     );
 
     final Set<Integer> rowkeyIndexes = SchemaUtil.getRowTimeRowKeyIndexes(getSchema());
@@ -128,7 +126,7 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
         outputNodeBuilder,
         functionRegistry,
         outputProperties,
-        schemaRegistryClient
+        schemaRegistryClientFactory
     );
 
     final KsqlStructuredDataOutputNode noRowKey = outputNodeBuilder.build();
@@ -143,7 +141,8 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
     result.into(
         noRowKey.getKafkaTopicName(),
         noRowKey.getKsqlTopic().getKsqlTopicSerDe()
-            .getGenericRowSerde(noRowKey.getSchema(), ksqlConfig, false, schemaRegistryClient),
+            .getGenericRowSerde(
+                noRowKey.getSchema(), ksqlConfig, false, schemaRegistryClientFactory),
         rowkeyIndexes
     );
 
@@ -155,7 +154,7 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
     return result;
   }
 
-  private boolean shouldBeCompacted(SchemaKStream result) {
+  private boolean shouldBeCompacted(final SchemaKStream result) {
     return (result instanceof SchemaKTable)
            && !((SchemaKTable) result).isWindowed();
   }
@@ -166,7 +165,7 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
       final KsqlStructuredDataOutputNode.Builder outputNodeBuilder,
       final FunctionRegistry functionRegistry,
       final Map<String, Object> outputProperties,
-      final SchemaRegistryClient schemaRegistryClient
+      final Supplier<SchemaRegistryClient> schemaRegistryClientFactory
   ) {
 
     if (schemaKStream instanceof SchemaKTable) {
@@ -180,12 +179,12 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
         Collections.singletonList(schemaKStream),
         SchemaKStream.Type.SINK,
         functionRegistry,
-        schemaRegistryClient
+        schemaRegistryClientFactory.get()
     );
 
     if (outputProperties.containsKey(DdlConfig.PARTITION_BY_PROPERTY)) {
-      String keyFieldName = outputProperties.get(DdlConfig.PARTITION_BY_PROPERTY).toString();
-      Field keyField = SchemaUtil.getFieldByName(
+      final String keyFieldName = outputProperties.get(DdlConfig.PARTITION_BY_PROPERTY).toString();
+      final Field keyField = SchemaUtil.getFieldByName(
           result.getSchema(), keyFieldName)
           .orElseThrow(() -> new KsqlException(String.format(
               "Column %s does not exist in the result schema."
@@ -239,7 +238,7 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
     return ksqlTopic.getKsqlTopicSerDe();
   }
 
-  public KsqlStructuredDataOutputNode cloneWithDoCreateInto(boolean newDoCreateInto) {
+  public KsqlStructuredDataOutputNode cloneWithDoCreateInto(final boolean newDoCreateInto) {
     return new KsqlStructuredDataOutputNode(
         getId(),
         getSource(),
@@ -262,7 +261,7 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
     private TimestampExtractionPolicy timestampExtractionPolicy;
     private Field keyField;
     private KsqlTopic ksqlTopic;
-    private String topicName;
+    private String kafkaTopicName;
     private Map<String, Object> outputProperties;
     private Optional<Integer> limit;
     private boolean doCreateInto;
@@ -275,7 +274,7 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
           timestampExtractionPolicy,
           keyField,
           ksqlTopic,
-          topicName,
+          kafkaTopicName,
           outputProperties,
           limit,
           doCreateInto);
@@ -289,7 +288,7 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
           .withTimestampExtractionPolicy(original.getTimestampExtractionPolicy())
           .withKeyField(original.getKeyField())
           .withKsqlTopic(original.getKsqlTopic())
-          .withTopicName(original.getKafkaTopicName())
+          .withKafkaTopicName(original.getKafkaTopicName())
           .withOutputProperties(original.getOutputProperties())
           .withLimit(original.getLimit())
           .withDoCreateInto(original.isDoCreateInto());
@@ -301,22 +300,22 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
       return this;
     }
 
-    Builder withOutputProperties(Map<String, Object> outputProperties) {
+    Builder withOutputProperties(final Map<String, Object> outputProperties) {
       this.outputProperties = outputProperties;
       return this;
     }
 
-    Builder withTopicName(String topicName) {
-      this.topicName = topicName;
+    Builder withKafkaTopicName(final String kafkaTopicName) {
+      this.kafkaTopicName = kafkaTopicName;
       return this;
     }
 
-    Builder withKsqlTopic(KsqlTopic ksqlTopic) {
+    Builder withKsqlTopic(final KsqlTopic ksqlTopic) {
       this.ksqlTopic = ksqlTopic;
       return this;
     }
 
-    Builder withKeyField(Field keyField) {
+    Builder withKeyField(final Field keyField) {
       this.keyField = keyField;
       return this;
     }
@@ -326,12 +325,12 @@ public class KsqlStructuredDataOutputNode extends OutputNode {
       return this;
     }
 
-    Builder withSchema(Schema schema) {
+    Builder withSchema(final Schema schema) {
       this.schema = schema;
       return this;
     }
 
-    Builder withSource(PlanNode source) {
+    Builder withSource(final PlanNode source) {
       this.source = source;
       return this;
     }
