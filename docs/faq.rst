@@ -85,46 +85,38 @@ notion of “windowing” for use cases such as performing aggregations on
 data grouped into 5-minute windows, which is a commonly required
 functionality in the streaming world.
 
-=====================================
-How do I shutdown a KSQL environment?
-=====================================
+======================================
+How do I shut down a KSQL environment?
+======================================
 
--  To stop DataGen tasks that were started with the ``-daemon`` flag:
+Exit KSQL CLI:
 
-   .. code:: bash
+.. code:: bash
 
-       jps | grep DataGen
+   ksql> exit
 
-   Your output should resemble:
+If you're running with Confluent CLI, use the ``confluent stop`` command:
 
-   .. code:: text
+.. code:: bash
 
-       25379 DataGen
-       
-   Stop the DataGen JVM by using the specified process ID:   
-       
-   .. code:: bash
+   confluent stop KSQL
 
-       kill 25379
+If you're running KSQL in Docker containers, stop the
+``cp-ksql-server`` container:
 
--  Exit KSQL.
+.. code:: bash
 
-   .. code:: bash
+   docker stop <cp-ksql-server-container-name>
 
-       ksql> exit
+If you're running KSQL as a system service, use the ``systemctl stop``
+command:
 
--  Stop Confluent Platform by shutting down all services including
-   Kafka.
+.. code:: bash
 
-   .. code:: bash
+   sudo systemctl stop confluent-ksql
 
-       confluent stop
-
--  To remove all data, topics, and streams:
-
-   .. code:: bash
-
-       confluent destroy
+For more information on shutting down |cp|, see
+:ref:`installation-overview`.
 
 ============================================
 How do I configure the target Kafka cluster?
@@ -283,27 +275,6 @@ Check runtime stats for the KSQL server that you're connected to.
 
 The KSQL REST API supports a "server info" request (for example, ``http://<ksql-server-url>/info``), 
 which returns info such as the KSQL version. For more info, see :ref:`ksql-rest-api`.
-
-=======================================================================
-How do I set the retention period for streams created for KSQL queries?
-=======================================================================
-
-When you create a stream, you can set ``retention.ms`` for the output topic.
-In the KSQL CLI, use the SET statement to assign a value to ``ksql.streams.retention.ms``:
-
-.. code:: bash
-
-    SET 'ksql.streams.retention.ms' = '86400000';
-
-Make the setting global by assigning ``ksql.streams.retention.ms`` in the KSQL
-server configuration file.
-
-.. note:: If you set ``windowstore.changelog.additional.retention.ms``, the
-          ``ksql.streams.retention.ms`` value is added to the retention period
-          for changelog topics. For example, if you set ``ksql.streams.retention.ms``
-          to 7 days, the sink topic retention is 7 days. If you set ``windowstore.changelog.additional.retention.ms``
-          to 2 days, the retention for the internal changelog topic for
-          statestore is the sum of these values: 7 + 2 = 9 days.
 
 ===============================================
 What if automatic topic creation is turned off?

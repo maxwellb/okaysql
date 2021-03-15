@@ -5,9 +5,10 @@ KSQL Syntax Reference
 
 KSQL has similar semantics to SQL:
 
-- Terminate KSQL statements with a semicolon ``;``
-- Use a back-slash ``\`` to indicate continuation of a multi-line statement on the next line
-- You can escape ' characters inside string literals by using '', i.e., 'yyyy-MM-dd''T''HH:mm:ssX'
+- Terminate KSQL statements with a semicolon ``;``.
+- Use a back-slash ``\`` to indicate continuation of a multi-line statement on the next line.
+- Escape single-quote characters (``'``) inside string literals by using two successive
+  single quotes (``''``). For example, to escape ``'T'``, write ``''T''``.
 
 ===========
 Terminology
@@ -97,6 +98,55 @@ WITHIN clauses.
 * MILLISECOND, MILLISECONDS
 
 For more information, see :ref:`windows_in_ksql_queries`.
+
+.. _ksql-timestamp-formats:
+
+KSQL Timestamp Formats
+----------------------
+
+Time-based operations, like windowing, process records according to the
+timestamp in ``ROWTIME``. By default, the implicit ``ROWTIME`` column is the
+timestamp of a message in a Kafka topic. Timestamps have an accuracy of
+one millisecond.
+
+Use the TIMESTAMP property to override ``ROWTIME`` with the contents of the 
+specified column. Define the format of a record's timestamp by using the
+TIMESTAMP_FORMAT property.
+
+If you use the TIMESTAMP property but don't set TIMESTAMP_FORMAT, KSQL assumes
+that the timestamp field is a ``bigint``. If you set TIMESTAMP_FORMAT, the
+TIMESTAMP field must be of type ``varchar`` and have a format that the 
+``DateTimeFormatter`` Java class can parse.
+
+If your timestamp format has embedded single quotes, you can escape them by
+using two successive single quotes, ``''``. For example, to escape ``'T'``,
+write ``''T''``. The following examples show how to escape the ``'`` character
+in KSQL statements.
+
+.. code:: sql
+
+    -- Example timestamp format: yyyy-MM-dd'T'HH:mm:ssX
+    CREATE STREAM TEST (ID bigint, event_timestamp VARCHAR) \
+      WITH (kafka_topic='test_topic',                       \
+            value_format='JSON',                            \
+            timestamp='event_timestamp',                    \
+            timestamp_format='yyyy-MM-dd''T''HH:mm:ssX');
+
+    -- Example timestamp format: yyyy.MM.dd G 'at' HH:mm:ss z
+    CREATE STREAM TEST (ID bigint, event_timestamp VARCHAR)    \
+      WITH (kafka_topic='test_topic',                          \
+            value_format='JSON',                               \
+            timestamp='event_timestamp',                       \
+            timestamp_format='yyyy.MM.dd G ''at'' HH:mm:ss z');
+
+    -- Example timestamp format: hh 'o'clock' a, zzzz
+    CREATE STREAM TEST (ID bigint, event_timestamp VARCHAR) \
+      WITH (kafka_topic='test_topic',                       \
+            value_format='JSON',                            \
+            timestamp='event_timestamp',                    \
+            timestamp_format='hh ''o''clock'' a, zzzz');
+
+For more information on timestamp formats, see `DateTimeFormatter <https://cnfl.io/java-dtf>`__.
 
 =================
 KSQL CLI Commands
@@ -259,12 +309,15 @@ The WITH clause supports the following properties:
 |                         | such as windowing, will process a record according to the timestamp in ``ROWTIME``.           |
 +-------------------------+-----------------------------------------------------------------------------------------------+
 | TIMESTAMP_FORMAT        | Used in conjunction with TIMESTAMP. If not set will assume that the timestamp field is a      |
-|                         | long. If it is set, then the TIMESTAMP field must be of type varchar and have a format        |
-|                         | that can be parsed with the java ``DateTimeFormatter``. If your timestamp format has          |
+|                         | bigint. If it is set, then the TIMESTAMP field must be of type varchar and have a format      |
+|                         | that can be parsed with the Java ``DateTimeFormatter``. If your timestamp format has          |
 |                         | characters requiring single quotes, you can escape them with two successive single quotes,    |
-|                         | ``''``, for example: ``'yyyy-MM-dd''T''HH:mm:ssX'``.                                          |
+|                         | ``''``, for example: ``'yyyy-MM-dd''T''HH:mm:ssX'``. For more information on timestamp        |
+|                         | formats, see `DateTimeFormatter <https://cnfl.io/java-dtf>`__.                                |
 +-------------------------+-----------------------------------------------------------------------------------------------+
 
+For more information on timestamp formats, see
+`DateTimeFormatter <https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html>`__.
 
 .. include:: ../includes/ksql-includes.rst
     :start-after: Avro_note_start
@@ -357,10 +410,11 @@ The WITH clause supports the following properties:
 |                         | as windowing, will process a record according to the timestamp in ``ROWTIME``.             |
 +-------------------------+--------------------------------------------------------------------------------------------+
 | TIMESTAMP_FORMAT        | Used in conjunction with TIMESTAMP. If not set will assume that the timestamp field is a   |
-|                         | long. If it is set, then the TIMESTAMP field must be of type varchar and have a format     |
-|                         | that can be parsed with the java ``DateTimeFormatter``. If your timestamp format has       |
+|                         | bigint. If it is set, then the TIMESTAMP field must be of type varchar and have a format   |
+|                         | that can be parsed with the Java ``DateTimeFormatter``. If your timestamp format has       |
 |                         | characters requiring single quotes, you can escape them with two successive single quotes, |
-|                         | ``''``, for example: ``'yyyy-MM-dd''T''HH:mm:ssX'``.                                       |
+|                         | ``''``, for example: ``'yyyy-MM-dd''T''HH:mm:ssX'``. For more information on timestamp     |
+|                         | formats, see `DateTimeFormatter <https://cnfl.io/java-dtf>`__.                             |
 +-------------------------+--------------------------------------------------------------------------------------------+
 
 .. include:: ../includes/ksql-includes.rst
@@ -371,7 +425,7 @@ Example:
 
 .. code:: sql
 
-    CREATE TABLE users (usertimestamp BIGINT, user_id VARCHAR, gender VARCHAR, region_id VARCHAR)
+    CREATE TABLE users (usertimestamp BIGINT, user_id VARCHAR, gender VARCHAR, region_id VARCHAR) WITH (
         KAFKA_TOPIC = 'my-users-topic',
         KEY = 'user_id');
 
@@ -382,7 +436,7 @@ use the following statement to declare your table:
 
 .. code:: sql
 
-    CREATE TABLE users (usertimestamp BIGINT, user_id VARCHAR, gender VARCHAR, region_id VARCHAR, `Properties` VARCHAR)
+    CREATE TABLE users (usertimestamp BIGINT, user_id VARCHAR, gender VARCHAR, region_id VARCHAR, `Properties` VARCHAR) WITH (
             KAFKA_TOPIC = 'my-users-topic',
             KEY = 'user_id');
 
@@ -410,8 +464,8 @@ continuously write the result of the SELECT query into the stream and
 its corresponding topic.
 
 If the PARTITION BY clause is present, then the resulting stream will
-have the specified column as its key. For more information, see
-:ref:`partition-data-to-enable-joins`.
+have the specified column as its key. The `column_name` must be present
+in the `select_expr`. For more information, see :ref:`partition-data-to-enable-joins`.
 
 For joins, the key of the resulting stream will be the value from the column
 from the left stream that was used in the join criteria. This column will be
@@ -420,6 +474,10 @@ columns.
 
 For stream-table joins, the column used in the join criteria for the table
 must be the table key.
+
+For stream-stream joins, you can specify an optional WITHIN clause for matching
+records that both occur within a specified time interval. For valid time units,
+see :ref:`ksql-time-units`.
 
 For more information, see :ref:`join-streams-and-tables`.
 
@@ -451,16 +509,20 @@ The WITH clause for the result supports the following properties:
 |                         |                                                                                                      |
 |                         | If not supplied, the ``ROWTIME`` of the source stream will be used.                                  |
 |                         |                                                                                                      |
-|                         | **NOTE**: This does _not_ affect the processing of the query that populates this stream,             |
-|                         | e.g. given the statement                                                                             |
-|                         | ``CREATE STEAM foo WITH (TIMESTAMP='t2') AS SELECT * FROM bar WINDOW TUMBLING (size 10 seconds);``,  |
-|                         | the window into which each row of ``bar`` is place is determined by bar's ``ROWTIME``, not ``t2``.   |
+|                         | **Note**: This doesn't affect the processing of the query that populates this stream.                |
+|                         | For example, given the following statement:                                                          |
+|                         |                                                                                                      |
+|                         | .. literalinclude:: ../includes/csas-snippet.sql                                                     |
+|                         |    :language: sql                                                                                    |
+|                         |                                                                                                      |
+|                         | The window into which each row of ``bar`` is placed is determined by bar's ``ROWTIME``, not ``t2``.  |
 +-------------------------+------------------------------------------------------------------------------------------------------+
 | TIMESTAMP_FORMAT        | Used in conjunction with TIMESTAMP. If not set will assume that the timestamp field is a             |
-|                         | long. If it is set, then the TIMESTAMP field must be of type varchar and have a format               |
-|                         | that can be parsed with the java ``DateTimeFormatter``. If your timestamp format has                 |
-|                         | characters requiring single quotes, you can escape them with two successive single quotes,           | 
-|                         | ``''``, for example: ``'yyyy-MM-dd''T''HH:mm:ssX'``.                                                 |
+|                         | bigint. If it is set, then the TIMESTAMP field must be of type varchar and have a format             |
+|                         | that can be parsed with the Java ``DateTimeFormatter``. If your timestamp format has                 |
+|                         | characters requiring single quotes, you can escape them with two successive single quotes,           |
+|                         | ``''``, for example: ``'yyyy-MM-dd''T''HH:mm:ssX'``. For more information on timestamp               |
+|                         | formats, see `DateTimeFormatter <https://cnfl.io/java-dtf>`__.                                       |
 +-------------------------+------------------------------------------------------------------------------------------------------+
 
 .. include:: ../includes/ksql-includes.rst
@@ -531,19 +593,20 @@ The WITH clause supports the following properties:
 |                         |                                                                                                      |
 |                         | If not supplied, the ``ROWTIME`` of the source stream will be used.                                  |
 |                         |                                                                                                      |
-|                         | **NOTE**: This does _not_ affect the processing of the query that populates this table,              |
-|                         | e.g. given the statement                                                                             |
+|                         | **Note**: This doesn't affect the processing of the query that populates this table.                 |
+|                         | For example, given the following statement:                                                          |
 |                         |                                                                                                      |
 |                         | .. literalinclude:: ../includes/ctas-snippet.sql                                                     |
 |                         |    :language: sql                                                                                    |
 |                         |                                                                                                      |
-|                         | the window into which each row of ``bar`` is placed is determined by bar's ``ROWTIME``, not ``t2``.  |
+|                         | The window into which each row of ``bar`` is placed is determined by bar's ``ROWTIME``, not ``t2``.  |
 +-------------------------+------------------------------------------------------------------------------------------------------+
 | TIMESTAMP_FORMAT        | Used in conjunction with TIMESTAMP. If not set will assume that the timestamp field is a             |
-|                         | long. If it is set, then the TIMESTAMP field must be of type varchar and have a format               |
-|                         | that can be parsed with the java ``DateTimeFormatter``. If your timestamp format has                 |
+|                         | bigint. If it is set, then the TIMESTAMP field must be of type varchar and have a format             |
+|                         | that can be parsed with the Java ``DateTimeFormatter``. If your timestamp format has                 |
 |                         | characters requiring single quotes, you can escape them with two successive single quotes,           |
-|                         | ``''``, for example: ``'yyyy-MM-dd''T''HH:mm:ssX'``.                                                 |
+|                         | ``''``, for example: ``'yyyy-MM-dd''T''HH:mm:ssX'``. For more information on timestamp               |
+|                         | formats, see `DateTimeFormatter <https://cnfl.io/java-dtf>`__.                                       |
 +-------------------------+------------------------------------------------------------------------------------------------------+
 
 .. include:: ../includes/ksql-includes.rst
@@ -594,18 +657,32 @@ DESCRIBE
 * DESCRIBE EXTENDED: Display DESCRIBE information with additional runtime statistics, Kafka topic details, and the
   set of queries that populate the table or stream.
 
-Extended descriptions provide the following metrics for the topic backing the source being described:
+Extended descriptions provide the following metrics for the topic backing the source being described.
 
-* messages-per-sec: The number of messages produced per second into the topic by the server
-* total-messages: Total number of messages produced into the topic by the server
-* total-message-bytes: Total number of bytes produced into the topic by the server
-* consumer-messages-per-sec: The number of messages consumed per second from the topic by the server
-* consumer-total-messages: Total number of messages consumed from the topic by the server
-* consumer-total-message-bytes: Total number of bytes consumed from the topic by the server
-* last-message: The time that the last message was produced to or consumed from the topic by the server
-* failed-messages-per-sec: The number of failures during message consumption (for example, deserialization failures) per second on the server
-* consumer-failed-messages: The total number of failures during message consumption on the server
-* last-failed: The time that the last failure occured when a message was consumed from the topic by the server
++------------------------------+------------------------------------------------------------------------------------------------------+
+| KSQL Metric                  | Description                                                                                          |
++==============================+======================================================================================================+
+| consumer-failed-messages     | Total number of failures during message consumption on the server.                                   |
++------------------------------+------------------------------------------------------------------------------------------------------+
+| consumer-messages-per-sec    | The number of messages consumed per second from the topic by the server.                             |
++------------------------------+------------------------------------------------------------------------------------------------------+
+| consumer-total-message-bytes | Total number of bytes consumed from the topic by the server.                                         |
++------------------------------+------------------------------------------------------------------------------------------------------+
+| consumer-total-messages      | Total number of messages consumed from the topic by the server.                                      |
++------------------------------+------------------------------------------------------------------------------------------------------+
+| failed-messages-per-sec      | Number of failures during message consumption (for example, deserialization failures)                |
+|                              | per second on the server.                                                                            |
++------------------------------+------------------------------------------------------------------------------------------------------+
+| last-failed                  | Time that the last failure occured when a message was consumed from the topic by the server.         |
++------------------------------+------------------------------------------------------------------------------------------------------+
+| last-message                 | Time that the last message was produced to or consumed from the topic by the server.                 |
++------------------------------+------------------------------------------------------------------------------------------------------+
+| messages-per-sec             | Number of messages produced per second into the topic by the server.                                 |
++------------------------------+------------------------------------------------------------------------------------------------------+
+| total-messages               | Total number of messages produced into the topic by the server.                                      |
++------------------------------+------------------------------------------------------------------------------------------------------+
+| total-message-bytes          | Total number of bytes produced into the topic by the server.                                         |
++------------------------------+------------------------------------------------------------------------------------------------------+
 
 Example of describing a table:
 
@@ -1244,7 +1321,9 @@ Scalar functions
 |                        |                                                            | that represents the millisecond timestamp. Single |
 |                        |                                                            | quotes in the timestamp format can be escaped with|
 |                        |                                                            | two successive single quotes, ``''``, for         |
-|                        |                                                            | example: ``'yyyy-MM-dd''T''HH:mm:ssX'``.          |
+|                        |                                                            | example: ``'yyyy-MM-dd''T''HH:mm:ssX'``. For more |
+|                        |                                                            | information on timestamp formats, see             |
+|                        |                                                            | `DateTimeFormatter <https://cnfl.io/java-dtf>`__. |
 +------------------------+------------------------------------------------------------+---------------------------------------------------+
 | SUBSTRING              |  ``SUBSTRING(col1, 2, 5)``                                 | Return the substring with the start and end       |
 |                        |                                                            | indices.                                          |
@@ -1254,7 +1333,9 @@ Scalar functions
 |                        |                                                            | the given format. Single quotes in the            |
 |                        |                                                            | timestamp format can be escaped with two          |
 |                        |                                                            | successive single quotes, ``''``, for example:    |
-|                        |                                                            | ``'yyyy-MM-dd''T''HH:mm:ssX'``.                   |
+|                        |                                                            | ``'yyyy-MM-dd''T''HH:mm:ssX'``. For more          |
+|                        |                                                            | information on timestamp formats, see             |
+|                        |                                                            | `DateTimeFormatter <https://cnfl.io/java-dtf>`__. |
 +------------------------+------------------------------------------------------------+---------------------------------------------------+
 | TRIM                   |  ``TRIM(col1)``                                            | Trim the spaces from the beginning and end of     |
 |                        |                                                            | a string.                                         |
@@ -1327,6 +1408,9 @@ In either case, when setting ``KEY`` you must be sure that *both* of the followi
 2. ``KEY`` must be set to a column of type ``VARCHAR`` aka ``STRING``.
 
 If these conditions are not met, then the results of aggregations and joins may be incorrect. However, if your data doesn't meet these requirements, you can still use KSQL with a few extra steps. The following section explains how.
+
+Table-table joins can be joined only on the ``KEY`` field, and one-to-many
+(1:N) joins aren't supported.
 
 What To Do If Your Key Is Not Set or Is In A Different Format
 -------------------------------------------------------------

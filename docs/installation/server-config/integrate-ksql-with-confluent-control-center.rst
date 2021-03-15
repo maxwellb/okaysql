@@ -25,6 +25,23 @@ properties in the KSQL Server and |c3-short| configuration files.
 * By default, the |c3-short| configuration file is installed at 
   ``<path-to-confluent>/etc/confluent-control-center/control-center.properties``.
 
+Secure Communication with KSQL Server
+=====================================
+
+When you use Basic authentication in KSQL, |c3-short| allows passing credentials
+as part of the KSQL Server URL in |c3-short| configuration.
+
+::
+
+    # KSQL cluster URL
+    confluent.controlcenter.ksql.url=http://<username>:<password>@localhost:8088
+
+You can set up KSQL Server to communicate securely with other components in
+|cp|. For more information, see :ref:`ksql-security`.
+
+Network Configuration for KSQL and |c3-short| 
+=============================================
+
 These are the configuration settings that you assign to set up network 
 connectivity between KSQL and |c3-short|.
 
@@ -134,3 +151,4 @@ Next Steps
 **********
 
 * :ref:`install_ksql-ccloud`
+* :ref:`ksql-security`
