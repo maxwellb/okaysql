@@ -20,7 +20,7 @@ Stream
 
 A stream is an unbounded sequence of structured data (“facts”). For example, we could have a stream of financial transactions
 such as “Alice sent $100 to Bob, then Charlie sent $50 to Bob”. Facts in a stream are immutable, which means new facts can
-be inserted to a stream, but existing facts can never be updated or deleted. Streams can be created from a Kafka topic or
+be inserted to a stream, but existing facts can never be updated or deleted. Streams can be created from an |ak-tm| topic or
 derived from an existing stream. A stream’s underlying data is durably stored (persisted) within a Kafka topic on the Kafka
 brokers.
 
@@ -81,6 +81,22 @@ For more info, see :ref:`operators`.
 
 .. note:: You can’t create new nested ``STRUCT`` data as the result of a query,
    but you can copy existing ``STRUCT`` fields as-is.
+
+.. _ksql-time-units:
+
+KSQL Time Units
+---------------
+
+The following list shows valid time units for the SIZE, ADVANCE BY, SESSION, and
+WITHIN clauses.
+
+* DAY, DAYS 
+* HOUR, HOURS
+* MINUTE, MINUTES
+* SECOND, SECONDS
+* MILLISECOND, MILLISECONDS
+
+For more information, see :ref:`windows_in_ksql_queries`.
 
 =================
 KSQL CLI Commands
@@ -907,8 +923,6 @@ the following WINDOW types:
          WINDOW SESSION (20 SECONDS)
          GROUP BY item_id;
 
-For more information, see :ref:`windows_in_ksql_queries`.
-
 CAST
 ~~~~
 
@@ -1033,6 +1047,8 @@ SHOW PROPERTIES
 
 List the :ref:`configuration settings <ksql-param-reference>` that are
 currently in effect.
+
+.. _ksql-terminate:
 
 TERMINATE
 ---------

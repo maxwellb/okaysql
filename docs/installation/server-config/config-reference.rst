@@ -20,7 +20,7 @@ These configurations control how Kafka Streams executes queries. These configura
 ksql.streams.auto.offset.reset
 ------------------------------
 
-Determines what to do when there is no initial offset in Kafka or if the current offset does not exist on the server. The
+Determines what to do when there is no initial offset in |ak-tm| or if the current offset does not exist on the server. The
 default value in KSQL is ``latest``, which means all Kafka topics are read from the latest available offset. For example,
 to change it to earliest by using the KSQL command line:
 
@@ -85,6 +85,16 @@ ksql.streams.num.stream.threads
 This number of stream threads in an instance of the Kafka Streams application. The stream processing code runs in these
 threads. For more information about Kafka Streams threading model, see :ref:`streams_architecture_threads`.
 
+-----------------------------
+ksql.output.topic.name.prefix
+-----------------------------
+
+The default prefix for automatically created topic names. Unless a user
+defines an explicit topic name in a KSQL statement, KSQL prepends the value of
+``ksql.output.topic.name.prefix`` to the names of automatically created output
+topics. For example, you might use "ksql-interactive-" to name output topics
+in a KSQL Server cluster that's deployed in interactive mode. For more information, see
+:ref:`Configuring Security for KSQL <config-security-ksql-acl-interactive_post_ak_2_0>`.
 
 KSQL Query Settings
 -------------------
@@ -116,7 +126,8 @@ properties file:
 ksql.schema.registry.url
 ------------------------
 
-The |sr| URL path to connect KSQL to.
+The |sr| URL path to connect KSQL to. To communicate with |sr| over a secure
+connection, see :ref:`config-security-ksql-sr`.
 
 .. _ksql-service-id:
 
